@@ -45,3 +45,14 @@ def clean_data(df):
     df = df.drop_duplicates()
 
     return df
+
+
+def save_cleaned_data(df, database_filepath):
+    """
+    Save the cleaned DataFrame into a SQLite database.
+    Args:
+    - df (DataFrame): Cleaned DataFrame.
+    - database_filepath (str): Filepath for the SQLite database.
+    """
+    engine = create_engine(f'sqlite:///{database_filepath}')
+    df.to_sql('DisasterResponse', engine, index=False, if_exists='replace')
