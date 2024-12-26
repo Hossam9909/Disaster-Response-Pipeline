@@ -52,7 +52,24 @@ def tokenize(text):
 
 
 def build_model():
-    pass
+    """
+    Build machine learning pipeline with GridSearchCV.
+    Returns:
+    - cv (GridSearchCV): Grid search model pipeline.
+    """
+    pipeline = Pipeline([
+        ('vect', TfidfVectorizer(tokenizer=tokenize)),
+        ('clf', MultiOutputClassifier(RandomForestClassifier()))
+    ])
+
+    parameters = {
+        'clf__estimator__n_estimators': [50, 100],
+        'clf__estimator__min_samples_split': [2, 4]
+    }
+
+    cv = GridSearchCV(pipeline, param_grid=parameters, verbose=3, n_jobs=-1)
+
+    return cv
 
 
 def evaluate_model(model, X_test, Y_test, category_names):
