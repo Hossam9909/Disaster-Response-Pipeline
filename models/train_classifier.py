@@ -73,7 +73,18 @@ def build_model():
 
 
 def evaluate_model(model, X_test, Y_test, category_names):
-    pass
+    """
+    Evaluate model performance on the test data.
+    Args:
+    - model: Trained machine learning model.
+    - X_test (DataFrame): Test features.
+    - Y_test (DataFrame): Test targets.
+    - category_names (list): List of category names.
+    """
+    Y_pred = model.predict(X_test)
+    for i, col in enumerate(category_names):
+        print(f'Category: {col}\n', classification_report(
+            Y_test.iloc[:, i], Y_pred[:, i]))
 
 
 def save_model(model, model_filepath):
