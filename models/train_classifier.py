@@ -72,6 +72,55 @@ def tokenize(text):
     return clean_tokens
 
 
+class StartingVerbExtractor(BaseEstimator, TransformerMixin):
+    """Extracts whether the starting word in text is a verb.
+    """
+
+    def starting_verb(self, text):
+        """Checks if the first word of a sentence is a verb or 'RT'.
+
+        Args:
+            text (str): Input text.
+
+        Returns:
+            bool: True if the first word is a verb or 'RT', False otherwise.
+        """
+        sentence_list = nltk.sent_tokenize(text)
+        for sentence in sentence_list:
+            tokens = tokenize(sentence)
+            if not tokens:  # Handle empty sentences
+                continue
+            pos_tags = nltk.pos_tag([tokens[0]])  # pos tag only the first word
+            first_word, first_tag = pos_tags[0]
+            if first_tag in ['VB', 'VBP'] or first_word == 'RT':
+                return True
+        return False
+
+    def fit(self, X, y=None):
+        """Fit method (does nothing in this case).
+
+        Args:
+            X: Input data.
+            y: Target data (optional).
+
+        Returns:
+            self: Returns the instance itself.
+        """
+        return self
+
+    def transform(self, X):
+        """Transforms input data to a Pandas DataFrame of starting verb features.
+
+        Args:
+            X (Series or array-like): Input text data.
+
+        Returns:
+            DataFrame: Pandas DataFrame with binary starting verb features.
+        """
+        X_tagged = pd.Series(X).apply(self.starting_verb)
+        return pd.DataFrame(X_tagged)
+
+
 def build_model():
     """
     Build machine learning pipeline with GridSearchCV.
