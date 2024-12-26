@@ -4,7 +4,6 @@ import re
 import string
 import pickle
 import pandas as pd
-import numpy as np
 from sqlalchemy import create_engine
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
@@ -37,6 +36,25 @@ def load_data(database_filepath):
     Y = df.iloc[:, 4:]
     category_names = Y.columns.tolist()
     return X, Y, category_names
+
+
+def split_data(X, Y, test_size=0.2, random_state=42):
+    """
+    Splits the data into training and test sets.
+
+    Args:
+    - X (DataFrame): Features.
+    - Y (DataFrame): Targets.
+    - test_size (float): Proportion of the dataset to include in the test split.
+    - random_state (int): Random state for reproducibility.
+
+    Returns:
+    - X_train (DataFrame): Training features.
+    - X_test (DataFrame): Test features.
+    - Y_train (DataFrame): Training targets.
+    - Y_test (DataFrame): Test targets.
+    """
+    return train_test_split(X, Y, test_size=test_size, random_state=random_state)
 
 
 def tokenize(text):
@@ -212,12 +230,15 @@ def save_model(model, model_filepath):
 
 
 def main():
+    """
+    Main function to execute the ML pipeline.
+    """
     if len(sys.argv) == 3:
         database_filepath, model_filepath = sys.argv[1:]
-        print('Loading data...\n    DATABASE: {}'.format(database_filepath))
+
+        print(f'Loading data from database: {database_filepath}')
         X, Y, category_names = load_data(database_filepath)
-        X_train, X_test, Y_train, Y_test = train_test_split(
-            X, Y, test_size=0.2)
+        X_train, X_test, Y_train, Y_test = split_data(X, Y)
 
         print('Building model...')
         model = build_model()
@@ -228,16 +249,14 @@ def main():
         print('Evaluating model...')
         evaluate_model(model, X_test, Y_test, category_names)
 
-        print('Saving model...\n    MODEL: {}'.format(model_filepath))
+        print(f'Saving model to: {model_filepath}')
         save_model(model, model_filepath)
 
-        print('Trained model saved!')
-
+        print('Model saved!')
     else:
-        print('Please provide the filepath of the disaster messages database '
-              'as the first argument and the filepath of the pickle file to '
-              'save the model to as the second argument. \n\nExample: python '
-              'train_classifier.py ../data/DisasterResponse.db classifier.pkl')
+        print('Please provide the filepath of the disaster response database as the first argument '
+              'and the filepath of the pickle file to save the model to as the second argument. \n\nExample: '
+              'python train_classifier.py data/DisasterResponse.db models/classifier.pkl')
 
 
 if __name__ == '__main__':
