@@ -36,7 +36,19 @@ def load_data(database_filepath):
 
 
 def tokenize(text):
-    pass
+    """
+    Normalize, tokenize, and lemmatize text input.
+    Args:
+    - text (str): Input text.
+    Returns:
+    - tokens (list): Processed tokens.
+    """
+    tokens = word_tokenize(text)
+    lemmatizer = WordNetLemmatizer()
+
+    clean_tokens = [lemmatizer.lemmatize(
+        token).lower().strip() for token in tokens]
+    return clean_tokens
 
 
 def build_model():
