@@ -1,4 +1,5 @@
 import sys
+import os
 import re
 import string
 import pickle
@@ -184,14 +185,30 @@ def evaluate_model(model, x_test, y_test, category_names):
 
 
 def save_model(model, model_filepath):
-    """
-    Save the trained model to a pickle file.
+    """Saves the trained model to a pickle file.
+
     Args:
-    - model: Trained machine learning model.
-    - model_filepath (str): Filepath for the pickle file.
+        model: Trained machine learning model.
+        model_filepath (str): Filepath for the pickle file.
+
+    Raises:
+        OSError: If there's an issue with file operations (e.g., directory not found).
+        pickle.PicklingError: If there's an error during pickling.
     """
-    with open(model_filepath, 'wb') as file:
-        pickle.dump(model, file)
+    try:
+        # Ensure the directory exists
+        os.makedirs(os.path.dirname(model_filepath), exist_ok=True)
+        with open(model_filepath, 'wb') as file:
+            pickle.dump(model, file)
+    except OSError as e:
+        print(f"Error saving model: {e}")
+        raise  # Re-raise the exception after printing
+    except pickle.PicklingError as e:
+        print(f"Error pickling model: {e}")
+        raise
+    except Exception as e:  # catch any other exception
+        print(f"An unexpected error occurred: {e}")
+        raise
 
 
 def main():
