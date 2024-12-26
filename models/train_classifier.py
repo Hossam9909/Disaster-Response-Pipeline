@@ -88,7 +88,14 @@ def evaluate_model(model, X_test, Y_test, category_names):
 
 
 def save_model(model, model_filepath):
-    pass
+    """
+    Save the trained model to a pickle file.
+    Args:
+    - model: Trained machine learning model.
+    - model_filepath (str): Filepath for the pickle file.
+    """
+    with open(model_filepath, 'wb') as file:
+        pickle.dump(model, file)
 
 
 def main():
