@@ -1,11 +1,14 @@
 import sys
+import re
+import pickle
 import pandas as pd
 import numpy as np
 from sqlalchemy import create_engine
-import pickle
-
+import string
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
+from nltk.tag import pos_tag
+from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.pipeline import Pipeline
@@ -14,7 +17,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report
 
 import nltk
-nltk.download(['punkt', 'wordnet'])
+nltk.download(['punkt', 'wordnet', 'averaged_perceptron_tagger'])
 
 
 def load_data(database_filepath):
@@ -36,18 +39,36 @@ def load_data(database_filepath):
 
 
 def tokenize(text):
-    """
-    Normalize, tokenize, and lemmatize text input.
+    """Normalize, tokenize, and lemmatize text input, replacing URLs.
+
     Args:
-    - text (str): Input text.
+        text (str): Input text.
+
     Returns:
-    - tokens (list): Processed tokens.
+        list: Processed tokens.
     """
+    url_regex = r"(?:(?:https?|ftp):\/\/)?[\w\/\-?=%.]+\.[\w\/\-&?=%.]+"  # More robust URL regex
+    detected_urls = re.findall(url_regex, text)
+    for url in detected_urls:
+        text = text.replace(url, "urlplaceholder")
+
+    # remove punctuation
+    text = "".join([char for char in text if char not in string.punctuation])
     tokens = word_tokenize(text)
     lemmatizer = WordNetLemmatizer()
-
-    clean_tokens = [lemmatizer.lemmatize(
-        token).lower().strip() for token in tokens]
+    clean_tokens = []
+    for token, tag in pos_tag(tokens):
+        if tag.startswith("NN"):
+            pos = 'n'  # Noun
+        elif tag.startswith('VB'):
+            pos = 'v'  # Verb
+        else:
+            pos = 'a'  # Adjective
+        try:
+            clean_token = lemmatizer.lemmatize(token, pos=pos).lower().strip()
+            clean_tokens.append(clean_token)
+        except:
+            continue  # Handle cases where lemmatization might fail
     return clean_tokens
 
 
