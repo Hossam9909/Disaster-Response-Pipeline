@@ -1,17 +1,17 @@
 import sys
 import re
+import string
 import pickle
 import pandas as pd
 import numpy as np
 from sqlalchemy import create_engine
-import string
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
 from nltk.tag import pos_tag
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.pipeline import Pipeline
+from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
+from sklearn.pipeline import Pipeline, FeatureUnion
 from sklearn.multioutput import MultiOutputClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report
@@ -122,19 +122,31 @@ class StartingVerbExtractor(BaseEstimator, TransformerMixin):
 
 
 def build_model():
-    """
-    Build machine learning pipeline with GridSearchCV.
+    """Builds a machine learning pipeline with GridSearchCV for text classification.
+
+    The pipeline includes text processing (tokenization, TF-IDF),
+    a custom feature extractor (StartingVerbExtractor), and a
+    RandomForestClassifier. GridSearchCV is used for hyperparameter tuning.
+
     Returns:
-    - cv (GridSearchCV): Grid search model pipeline.
+        GridSearchCV: A GridSearchCV object fitted with the pipeline and parameters.
     """
     pipeline = Pipeline([
-        ('vect', TfidfVectorizer(tokenizer=tokenize)),
+        ('features', FeatureUnion([
+            ('text_pipeline', Pipeline([
+                ('vect', CountVectorizer(tokenizer=tokenize)),
+                ('tfidf', TfidfTransformer())
+            ])),
+            ('starting_verb', StartingVerbExtractor())
+        ])),
         ('clf', MultiOutputClassifier(RandomForestClassifier()))
     ])
 
     parameters = {
-        'clf__estimator__n_estimators': [50, 100],
-        'clf__estimator__min_samples_split': [2, 4]
+        'features__text_pipeline__vect__ngram_range': [(1, 1), (1, 2)],
+        'clf__estimator__n_estimators': [50, 100, 200],
+        'clf__estimator__min_samples_split': [2, 4],
+        'clf__estimator__max_depth': [None, 10, 20],
     }
 
     cv = GridSearchCV(pipeline, param_grid=parameters, verbose=3, n_jobs=-1)
