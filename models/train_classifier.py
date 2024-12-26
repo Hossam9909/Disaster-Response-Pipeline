@@ -154,19 +154,33 @@ def build_model():
     return cv
 
 
-def evaluate_model(model, X_test, Y_test, category_names):
-    """
-    Evaluate model performance on the test data.
+def evaluate_model(model, x_test, y_test, category_names):
+    """Evaluates model performance on the test data using classification metrics.
+
+    Prints a classification report for each category.
+
     Args:
-    - model: Trained machine learning model.
-    - X_test (DataFrame): Test features.
-    - Y_test (DataFrame): Test targets.
-    - category_names (list): List of category names.
+        model: Trained machine learning model.
+        x_test (pd.DataFrame): Test features.
+        y_test (pd.DataFrame): Test targets.
+        category_names (list): List of category names.
+
+    Returns:
+        None
     """
-    Y_pred = model.predict(X_test)
-    for i, col in enumerate(category_names):
-        print(f'Category: {col}\n', classification_report(
-            Y_test.iloc[:, i], Y_pred[:, i]))
+    y_pred = model.predict(x_test)
+
+    # Convert predictions to DataFrame for easier comparison and reporting
+    y_pred_df = pd.DataFrame(
+        y_pred, columns=category_names, index=y_test.index)
+
+    for category in category_names:
+        print(f"Category: {category}\n")
+        print(classification_report(y_test[category], y_pred_df[category]))
+
+    # Calculate and print overall accuracy
+    overall_accuracy = (y_pred == y_test.values).mean()
+    print(f"Overall Accuracy: {overall_accuracy}")
 
 
 def save_model(model, model_filepath):
