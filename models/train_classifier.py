@@ -38,7 +38,7 @@ def load_data(database_filepath):
     return X, Y, category_names
 
 
-def split_data(X, Y, test_size=0.2, random_state=42):
+def split_data(X, Y, test_size=0.8, random_state=42):
     """
     Splits the data into training and test sets.
 
@@ -163,9 +163,9 @@ def build_model():
 
     parameters = {
         'features__text_pipeline__vect__ngram_range': [(1, 1), (1, 2)],
-        'clf__estimator__n_estimators': [50, 100, 200],
-        'clf__estimator__min_samples_split': [2, 4],
-        'clf__estimator__max_depth': [None, 10, 20],
+        'clf__estimator__n_estimators': [50, 100],  # Reduce options here
+        'clf__estimator__min_samples_split': [2],  # Fix min_samples_split
+        'clf__estimator__max_depth': [None],  # Fix max_depth
     }
 
     cv = GridSearchCV(pipeline, param_grid=parameters, verbose=3, n_jobs=-1)
@@ -235,6 +235,10 @@ def main():
     """
     if len(sys.argv) == 3:
         database_filepath, model_filepath = sys.argv[1:]
+    else:
+        # Default arguments for testing in an editor
+        database_filepath = 'data/DisasterResponse.db'
+        model_filepath = 'models/classifier.pkl'
 
         print(f'Loading data from database: {database_filepath}')
         X, Y, category_names = load_data(database_filepath)
