@@ -1,22 +1,23 @@
-import sys
 import os
+import pickle
 import re
 import string
-import pickle
-import pandas as pd
-from sqlalchemy import create_engine
-from nltk.tokenize import word_tokenize
-from nltk.stem import WordNetLemmatizer
-from nltk.tag import pos_tag
-from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
-from sklearn.pipeline import Pipeline, FeatureUnion
-from sklearn.multioutput import MultiOutputClassifier
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import classification_report
+import sys
 
 import nltk
+import pandas as pd
+from nltk.stem import WordNetLemmatizer
+from nltk.tag import pos_tag
+from nltk.tokenize import word_tokenize
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
+from sklearn.metrics import classification_report
+from sklearn.model_selection import GridSearchCV, train_test_split
+from sklearn.multioutput import MultiOutputClassifier
+from sklearn.pipeline import FeatureUnion, Pipeline
+from sqlalchemy import create_engine
+
 nltk.download(['punkt', 'wordnet', 'averaged_perceptron_tagger'])
 
 
@@ -235,10 +236,6 @@ def main():
     """
     if len(sys.argv) == 3:
         database_filepath, model_filepath = sys.argv[1:]
-    else:
-        # Default arguments for testing in an editor
-        database_filepath = 'data/DisasterResponse.db'
-        model_filepath = 'models/classifier.pkl'
 
         print(f'Loading data from database: {database_filepath}')
         X, Y, category_names = load_data(database_filepath)

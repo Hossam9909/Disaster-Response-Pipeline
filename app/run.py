@@ -1,16 +1,19 @@
 import json
-import plotly
-import pandas as pd
+import os
+import sys
 
+import joblib
+import pandas as pd
+import plotly
+from flask import Flask, jsonify, render_template, request
 from nltk.stem import WordNetLemmatizer
 from nltk.tokenize import word_tokenize
-
-from flask import Flask
-from flask import render_template, request, jsonify
 from plotly.graph_objs import Bar
-from sklearn.externals import joblib
 from sqlalchemy import create_engine
 
+from models.train_classifier import StartingVerbExtractor
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 app = Flask(__name__)
 
