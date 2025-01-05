@@ -14,43 +14,75 @@ from sqlalchemy import create_engine
 
 app = Flask(__name__)
 
+
 def tokenize(text):
+    """Normalize, tokenize, and lemmatize text input, replacing URLs.
+
+    Args:
+        text (str): Input text.
+
+    Returns:
+        list: Processed tokens.
+    """
+    url_regex = r"(?:(?:https?|ftp):\/\/)?[\w\/\-?=%.]+\.[\w\/\-&?=%.]+"  # More robust URL regex
+    detected_urls = re.findall(url_regex, text)
+    for url in detected_urls:
+        text = text.replace(url, "urlplaceholder")
+
+    # remove punctuation
+    text = "".join([char for char in text if char not in string.punctuation])
     tokens = word_tokenize(text)
     lemmatizer = WordNetLemmatizer()
-
     clean_tokens = []
-    for tok in tokens:
-        clean_tok = lemmatizer.lemmatize(tok).lower().strip()
-        clean_tokens.append(clean_tok)
-
+    for token, tag in pos_tag(tokens):
+        if tag.startswith("NN"):
+            pos = 'n'  # Noun
+        elif tag.startswith('VB'):
+            pos = 'v'  # Verb
+        else:
+            pos = 'a'  # Adjective
+        try:
+            clean_token = lemmatizer.lemmatize(token, pos=pos).lower().strip()
+            clean_tokens.append(clean_token)
+        except:
+            continue  # Handle cases where lemmatization might fail
     return clean_tokens
 
+
 # load data
-engine = create_engine('sqlite:///../data/YourDatabaseName.db')
-df = pd.read_sql_table('YourTableName', engine)
+try:
+    engine = create_engine('sqlite:///../data/DisasterResponse.db')
+    df = pd.read_sql_table('DisasterResponse', engine)
+except Exception as e:
+    print(f"Error loading database: {e}")
 
 # load model
-model = joblib.load("../models/your_model_name.pkl")
+try:
+    model = joblib.load("../models/classifier.pkl")
 
+except Exception as e:
+    print(f"Error loading model: {e}")
 
 # index webpage displays cool visuals and receives user input text for model
+
+
 @app.route('/')
 @app.route('/index')
 def index():
-    
+
     # extract data needed for visuals
-    # TODO: Below is an example - modify to extract data for your own visuals
-    genre_counts = df.groupby('genre').count()['message']
-    genre_names = list(genre_counts.index)
-    
+
+    category_counts = df.iloc[:, 4:].sum().sort_values(ascending=False)
+    category_names = category_counts.index
+
     # create visuals
     # TODO: Below is an example - modify to create your own visuals
     graphs = [
         {
             'data': [
                 Bar(
-                    x=genre_names,
-                    y=genre_counts
+                    x=category_names,
+                    y=category_counts
                 )
             ],
 
@@ -63,13 +95,26 @@ def index():
                     'title': "Genre"
                 }
             }
+        },
+        {
+            'data': [
+                Bar(
+                    x=genre_names,
+                    y=genre_counts
+                )
+            ],
+            'layout': {
+                'title': 'Distribution of Message Genres',
+                'yaxis': {'title': "Count"},
+                'xaxis': {'title': "Genre"}
+            }
         }
     ]
-    
+
     # encode plotly graphs in JSON
     ids = ["graph-{}".format(i) for i, _ in enumerate(graphs)]
     graphJSON = json.dumps(graphs, cls=plotly.utils.PlotlyJSONEncoder)
-    
+
     # render web page with plotly graphs
     return render_template('master.html', ids=ids, graphJSON=graphJSON)
 
@@ -78,13 +123,13 @@ def index():
 @app.route('/go')
 def go():
     # save user input in query
-    query = request.args.get('query', '') 
+    query = request.args.get('query', '')
 
     # use model to predict classification for query
     classification_labels = model.predict([query])[0]
     classification_results = dict(zip(df.columns[4:], classification_labels))
 
-    # This will render the go.html Please see that file. 
+    # This will render the go.html Please see that file.
     return render_template(
         'go.html',
         query=query,
