@@ -1,7 +1,20 @@
 import sys
 import logging
+import os
+import re
+import string
 import pandas as pd
 from sqlalchemy import create_engine
+
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+from nltk.stem import WordNetLemmatizer
+
+# Configure NLTK resources
+import nltk
+nltk.download('punkt')
+nltk.download('wordnet')
+nltk.download('stopwords')
 
 
 def configure_logging():
@@ -13,6 +26,25 @@ def configure_logging():
 
 
 configure_logging()
+
+
+def validate_input_files(filepaths):
+    """
+    Validate the input filepaths to ensure they exist and are readable.
+
+    Args:
+    - filepaths (list): List of filepaths to validate.
+
+    Returns:
+    - None
+    """
+    for filepath in filepaths:
+        if not os.path.exists(filepath):
+            logging.error(f"File not found: {filepath}")
+            sys.exit(1)
+        if not filepath.endswith('.csv'):
+            logging.error(f"Invalid file format (expected .csv): {filepath}")
+            sys.exit(1)
 
 
 def load_data(messages_filepath, categories_filepath):
@@ -36,6 +68,26 @@ def load_data(messages_filepath, categories_filepath):
     except Exception as e:
         logging.error(f"Error loading data: {e}")
         sys.exit(1)
+
+
+def tokenize(text):
+    """
+    Tokenize and preprocess text by normalizing, removing punctuation, and lemmatizing.
+
+    Args:
+    - text (str): Input text.
+
+    Returns:
+    - tokens (list): List of processed tokens.
+    """
+    text = text.lower()
+    text = re.sub(f"[{string.punctuation}]", "", text)  # Remove punctuation
+    tokens = word_tokenize(text)
+    lemmatizer = WordNetLemmatizer()
+    stop_words = set(stopwords.words('english'))
+    tokens = [lemmatizer.lemmatize(token)
+              for token in tokens if token not in stop_words]
+    return tokens
 
 
 def clean_data(df):
@@ -97,6 +149,22 @@ def save_cleaned_data(df, database_filepath):
         sys.exit(1)
 
 
+def summarize_data(df):
+    """
+    Print a summary report of the dataset.
+
+    Args:
+    - df (DataFrame): The DataFrame to summarize.
+    """
+    try:
+        logging.info(f"Dataset contains {df.shape[0]} rows and {
+                     df.shape[1]} columns.")
+        logging.info(f"Columns: {', '.join(df.columns)}")
+        logging.info(f"Number of duplicate rows: {df.duplicated().sum()}")
+    except Exception as e:
+        logging.error(f"Error summarizing data: {e}")
+
+
 def main():
     """
     Main function to execute the ETL pipeline.
@@ -104,12 +172,16 @@ def main():
     if len(sys.argv) == 4:
         messages_filepath, categories_filepath, database_filepath = sys.argv[1:]
 
+        validate_input_files([messages_filepath, categories_filepath])
+
         logging.info(f'Loading data...\n    MESSAGES: {
                      messages_filepath}\n    CATEGORIES: {categories_filepath}')
         df = load_data(messages_filepath, categories_filepath)
 
         logging.info('Cleaning data...')
         df = clean_data(df)
+
+        summarize_data(df)
 
         logging.info(f'Saving data...\n    DATABASE: {database_filepath}')
         save_cleaned_data(df, database_filepath)
