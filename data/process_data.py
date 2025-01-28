@@ -3,8 +3,11 @@ import logging
 import os
 import re
 import string
+import multiprocessing
 import pandas as pd
 from sqlalchemy import create_engine
+from joblib import Parallel, delayed
+
 
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
@@ -90,20 +93,19 @@ def tokenize(text):
     return tokens
 
 
-def clean_data(df):
+def clean_row(row):
     """
-    Clean the merged DataFrame.
+    Clean a single row of the DataFrame.
     Args:
-    - df (DataFrame): Merged DataFrame of messages and categories.
+    - row (Series): A row of the DataFrame.
     Returns:
-    - df (DataFrame): Cleaned DataFrame.
+    - row (Series): Cleaned row.
     """
     try:
         # Split categories into separate columns
-        categories_split = df['categories'].str.split(';', expand=True)
+        categories_split = row['categories'].str.split(';', expand=True)
         # Extract column names
-        row = categories_split.iloc[0]
-        category_colnames = row.apply(lambda x: x[:-2])
+        category_colnames = categories_split.iloc[0].apply(lambda x: x[:-2])
         categories_split.columns = category_colnames
 
         # Convert category values to binary
@@ -117,8 +119,28 @@ def clean_data(df):
                     lambda x: 1 if x > 0 else 0)
 
         # Replace categories column with the new category columns
-        df = df.drop('categories', axis=1)
-        df = pd.concat([df, categories_split], axis=1)
+        row = row.drop('categories')
+        row = pd.concat([row, categories_split], axis=0)
+        return row
+    except Exception as e:
+        logging.error(f"Error cleaning row: {e}")
+        return row
+
+
+def clean_data(df):
+    """
+    Clean the merged DataFrame using parallel processing.
+    Args:
+    - df (DataFrame): Merged DataFrame of messages and categories.
+    Returns:
+    - df (DataFrame): Cleaned DataFrame.
+    """
+    try:
+        # Use multiprocessing to clean rows in parallel
+        num_cores = multiprocessing.cpu_count()
+        cleaned_data = Parallel(n_jobs=num_cores)(
+            delayed(clean_row)(row) for _, row in df.iterrows())
+        df = pd.DataFrame(cleaned_data)
 
         # Remove duplicates
         initial_length = len(df)
