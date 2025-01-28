@@ -1,6 +1,7 @@
 import os
 import re
 import json
+import string
 import pandas as pd
 import joblib
 import plotly
@@ -8,11 +9,11 @@ from sqlalchemy import create_engine
 from plotly.graph_objs import Bar
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
+from nltk import pos_tag
 from flask import Flask, jsonify, render_template, request
 
-# Importing train_classifier from models
+# Importing train_classifier
 from models import train_classifier
-
 
 app = Flask(__name__)
 
@@ -31,54 +32,53 @@ def tokenize(text):
     for url in detected_urls:
         text = text.replace(url, "urlplaceholder")
 
-    # remove punctuation
-    text = "".join([char for char in text if char not in string.punctuation])
+    # Remove punctuation using re.sub
+    text = re.sub(f"[{re.escape(string.punctuation)}]", "", text)
+
     tokens = word_tokenize(text)
     lemmatizer = WordNetLemmatizer()
     clean_tokens = []
     for token, tag in pos_tag(tokens):
-        if tag.startswith("NN"):
-            pos = 'n'  # Noun
-        elif tag.startswith('VB'):
-            pos = 'v'  # Verb
-        else:
-            pos = 'a'  # Adjective
+        pos = 'n' if tag.startswith(
+            "NN") else 'v' if tag.startswith('VB') else 'a'
         try:
             clean_token = lemmatizer.lemmatize(token, pos=pos).lower().strip()
             clean_tokens.append(clean_token)
-        except:
-            continue  # Handle cases where lemmatization might fail
+        except Exception as e:
+            continue  # Skip tokens that cause errors
     return clean_tokens
 
 
-# load data
+# Load data
 try:
     engine = create_engine('sqlite:///../data/DisasterResponse.db')
     df = pd.read_sql_table('DisasterResponse', engine)
 except Exception as e:
     print(f"Error loading database: {e}")
+    df = None
 
-# load model
+# Load model
 try:
     model = joblib.load("../models/classifier.pkl")
-
 except Exception as e:
     print(f"Error loading model: {e}")
-
-# index webpage displays cool visuals and receives user input text for model
+    model = None
 
 
 @app.route('/')
 @app.route('/index')
 def index():
+    if df is None:
+        return "Error: Database not loaded properly."
 
-    # extract data needed for visuals
-
+    # Extract data needed for visuals
     category_counts = df.iloc[:, 4:].sum().sort_values(ascending=False)
     category_names = category_counts.index
 
-    # create visuals
-    # TODO: Below is an example - modify to create your own visuals
+    genre_counts = df.groupby('genre').count()['message']
+    genre_names = genre_counts.index
+
+    # Create visuals
     graphs = [
         {
             'data': [
@@ -87,15 +87,10 @@ def index():
                     y=category_counts
                 )
             ],
-
             'layout': {
-                'title': 'Distribution of Message Genres',
-                'yaxis': {
-                    'title': "Count"
-                },
-                'xaxis': {
-                    'title': "Genre"
-                }
+                'title': 'Distribution of Message Categories',
+                'yaxis': {'title': "Count"},
+                'xaxis': {'title': "Categories", 'tickangle': -45}
             }
         },
         {
@@ -113,21 +108,26 @@ def index():
         }
     ]
 
-    # encode plotly graphs in JSON
+    # Encode plotly graphs in JSON
     ids = ["graph-{}".format(i) for i, _ in enumerate(graphs)]
     graphJSON = json.dumps(graphs, cls=plotly.utils.PlotlyJSONEncoder)
 
-    # render web page with plotly graphs
+    # Render web page with plotly graphs
     return render_template('master.html', ids=ids, graphJSON=graphJSON)
 
 
-# web page that handles user query and displays model results
 @app.route('/go')
 def go():
-    # save user input in query
+    if model is None:
+        return "Error: Model not loaded properly."
+
+    # Save user input in query
     query = request.args.get('query', '')
 
-    # use model to predict classification for query
+    if not query.strip():
+        return "Error: Query cannot be empty."
+
+    # Use model to predict classification for query
     classification_labels = model.predict([query])[0]
     classification_results = dict(zip(df.columns[4:], classification_labels))
 
