@@ -5,143 +5,113 @@ import string
 import pandas as pd
 import joblib
 import plotly
+import plotly.express as px
+import seaborn as sns
 from sqlalchemy import create_engine
+from flask import Flask, render_template, request, redirect
+from flask_sqlalchemy import SQLAlchemy
 from plotly.graph_objs import Bar
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
 from nltk import pos_tag
-from flask import Flask, jsonify, render_template, request
-
-# Importing train_classifier
-from models import train_classifier
 
 app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///feedback.db'
+db = SQLAlchemy(app)
+
+# ================== NEW: Feedback Model ==================
 
 
-def tokenize(text):
-    """Normalize, tokenize, and lemmatize text input, replacing URLs.
-
-    Args:
-        text (str): Input text.
-
-    Returns:
-        list: Processed tokens.
-    """
-    url_regex = r"(?:(?:https?|ftp):\/\/)?[\w\/\-?=%.]+\.[\w\/\-&?=%.]+"  # More robust URL regex
-    detected_urls = re.findall(url_regex, text)
-    for url in detected_urls:
-        text = text.replace(url, "urlplaceholder")
-
-    # Remove punctuation using re.sub
-    text = re.sub(f"[{re.escape(string.punctuation)}]", "", text)
-
-    tokens = word_tokenize(text)
-    lemmatizer = WordNetLemmatizer()
-    clean_tokens = []
-    for token, tag in pos_tag(tokens):
-        pos = 'n' if tag.startswith(
-            "NN") else 'v' if tag.startswith('VB') else 'a'
-        try:
-            clean_token = lemmatizer.lemmatize(token, pos=pos).lower().strip()
-            clean_tokens.append(clean_token)
-        except Exception as e:
-            continue  # Skip tokens that cause errors
-    return clean_tokens
+class Feedback(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    message = db.Column(db.String(500))
+    prediction = db.Column(db.String(500))
+    is_correct = db.Column(db.Boolean)
 
 
-# Load data
-try:
-    engine = create_engine('sqlite:///../data/DisasterResponse.db')
-    df = pd.read_sql_table('DisasterResponse', engine)
-except Exception as e:
-    print(f"Error loading database: {e}")
-    df = None
+# ================== NEW: Recommendations ==================
+RECOMMENDATIONS = {
+    'water': 'Contact Water.org and local authorities for water assistance.',
+    'medical_help': 'Alert Red Cross and local hospitals for medical support.',
+    'food': 'Reach out to World Food Programme and local food banks.'
+}
 
-# Load model
-try:
-    model = joblib.load("../models/classifier.pkl")
-except Exception as e:
-    print(f"Error loading model: {e}")
-    model = None
+# Load data and model
+engine = create_engine('sqlite:///../data/DisasterResponse.db')
+df = pd.read_sql_table('DisasterResponse', engine)
+model = joblib.load("../models/classifier.pkl")
+
+# ================== NEW: Enhanced Visualizations ==================
+
+
+def create_visualizations():
+    """Generate all visualizations for the dashboard."""
+    # Category distribution
+    category_counts = df.iloc[:, 4:].sum().sort_values(ascending=False)
+
+    # Time series analysis
+    df['date'] = pd.to_datetime(
+        df['message'].str.extract(r'(\d{4}-\d{2}-\d{2})')[0])
+    time_series = df.groupby(
+        [df['date'].dt.to_period('M'), 'genre']).size().unstack()
+
+    # Correlation heatmap
+    corr_matrix = df.iloc[:, 4:-1].corr()
+
+    return {
+        'category_dist': px.bar(category_counts, title='Message Categories'),
+        'time_series': px.line(time_series, title='Messages Over Time'),
+        'correlation': px.imshow(corr_matrix, title='Category Correlation')
+    }
+
+# ================== UPDATED: Enhanced Index Route ==================
 
 
 @app.route('/')
-@app.route('/index')
 def index():
-    if df is None:
-        return "Error: Database not loaded properly."
+    graphs = create_visualizations()
+    return render_template('master.html',
+                           category_graph=graphs['category_dist'].to_html(),
+                           time_graph=graphs['time_series'].to_html(),
+                           corr_graph=graphs['correlation'].to_html())
 
-    # Extract data needed for visuals
-    category_counts = df.iloc[:, 4:].sum().sort_values(ascending=False)
-    category_names = category_counts.index
-
-    genre_counts = df.groupby('genre').count()['message']
-    genre_names = genre_counts.index
-
-    # Create visuals
-    graphs = [
-        {
-            'data': [
-                Bar(
-                    x=category_names,
-                    y=category_counts
-                )
-            ],
-            'layout': {
-                'title': 'Distribution of Message Categories',
-                'yaxis': {'title': "Count"},
-                'xaxis': {'title': "Categories", 'tickangle': -45}
-            }
-        },
-        {
-            'data': [
-                Bar(
-                    x=genre_names,
-                    y=genre_counts
-                )
-            ],
-            'layout': {
-                'title': 'Distribution of Message Genres',
-                'yaxis': {'title': "Count"},
-                'xaxis': {'title': "Genre"}
-            }
-        }
-    ]
-
-    # Encode plotly graphs in JSON
-    ids = ["graph-{}".format(i) for i, _ in enumerate(graphs)]
-    graphJSON = json.dumps(graphs, cls=plotly.utils.PlotlyJSONEncoder)
-
-    # Render web page with plotly graphs
-    return render_template('master.html', ids=ids, graphJSON=graphJSON)
+# ================== UPDATED: Enhanced Classification Route ==================
 
 
-@app.route('/go')
+@app.route('/go', methods=['GET', 'POST'])
 def go():
-    if model is None:
-        return "Error: Model not loaded properly."
+    if request.method == 'POST':
+        # Handle feedback
+        feedback = request.form.get('feedback')
+        if feedback:
+            new_feedback = Feedback(
+                message=request.form['message'],
+                prediction=request.form['prediction'],
+                is_correct=(feedback == 'accurate')
+            )
+            db.session.add(new_feedback)
+            db.session.commit()
+            return redirect('/')
 
-    # Save user input in query
     query = request.args.get('query', '')
-
     if not query.strip():
-        return "Error: Query cannot be empty."
+        return render_template('go.html', error="Please enter a message.")
 
-    # Use model to predict classification for query
-    classification_labels = model.predict([query])[0]
-    classification_results = dict(zip(df.columns[4:], classification_labels))
+    try:
+        pred = model.predict([query])[0]
+        results = dict(zip(df.columns[4:-1], pred))
+        recommendations = [RECOMMENDATIONS[cat]
+                           for cat in results if results[cat] and cat in RECOMMENDATIONS]
 
-    # This will render the go.html Please see that file.
-    return render_template(
-        'go.html',
-        query=query,
-        classification_result=classification_results
-    )
-
-
-def main():
-    app.run(host='0.0.0.0', port=3001, debug=True)
+        return render_template('go.html',
+                               query=query,
+                               results=results,
+                               recommendations=recommendations)
+    except Exception as e:
+        return render_template('go.html', error=f"Error processing request: {str(e)}")
 
 
 if __name__ == '__main__':
-    main()
+    with app.app_context():
+        db.create_all()
+    app.run(host='0.0.0.0', port=3001, debug=True)
