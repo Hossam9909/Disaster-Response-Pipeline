@@ -1,156 +1,30 @@
 import os
-import pickle
+import sys
 import re
 import string
-import sys
-
-import nltk
 import pandas as pd
+import joblib  # Replaced pickle with joblib
+from sqlalchemy import create_engine
+from imblearn.pipeline import Pipeline  # Changed to imblearn's Pipeline
+from imblearn.over_sampling import SMOTE
 from nltk.stem import WordNetLemmatizer
 from nltk.tag import pos_tag
 from nltk.tokenize import word_tokenize
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, f1_score
 from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.multioutput import MultiOutputClassifier
-from sklearn.pipeline import FeatureUnion, Pipeline
-from sqlalchemy import create_engine
+from sklearn.pipeline import FeatureUnion
 
 nltk.download(['punkt', 'wordnet', 'averaged_perceptron_tagger'])
 
-
-def load_data(database_filepath):
-    """
-    Load data from SQLite database.
-    Args:
-    - database_filepath (str): Filepath for the SQLite database.
-    Returns:
-    - X (DataFrame): Features (messages).
-    - Y (DataFrame): Targets (categories).
-    - category_names (list): List of category names.
-    """
-    engine = create_engine(f'sqlite:///{database_filepath}')
-    df = pd.read_sql_table('DisasterResponse', engine)
-    X = df['message']
-    Y = df.iloc[:, 4:]
-    category_names = Y.columns.tolist()
-    return X, Y, category_names
-
-
-def split_data(X, Y, test_size=0.8, random_state=42):
-    """
-    Splits the data into training and test sets.
-
-    Args:
-    - X (DataFrame): Features.
-    - Y (DataFrame): Targets.
-    - test_size (float): Proportion of the dataset to include in the test split.
-    - random_state (int): Random state for reproducibility.
-
-    Returns:
-    - X_train (DataFrame): Training features.
-    - X_test (DataFrame): Test features.
-    - Y_train (DataFrame): Training targets.
-    - Y_test (DataFrame): Test targets.
-    """
-    return train_test_split(X, Y, test_size=test_size, random_state=random_state)
-
-
-def tokenize(text):
-    """Normalize, tokenize, and lemmatize text input, replacing URLs.
-
-    Args:
-        text (str): Input text.
-
-    Returns:
-        list: Processed tokens.
-    """
-    url_regex = r"(?:(?:https?|ftp):\/\/)?[\w\/\-?=%.]+\.[\w\/\-&?=%.]+"  # More robust URL regex
-    detected_urls = re.findall(url_regex, text)
-    for url in detected_urls:
-        text = text.replace(url, "urlplaceholder")
-
-    # remove punctuation
-    text = "".join([char for char in text if char not in string.punctuation])
-    tokens = word_tokenize(text)
-    lemmatizer = WordNetLemmatizer()
-    clean_tokens = []
-    for token, tag in pos_tag(tokens):
-        if tag.startswith("NN"):
-            pos = 'n'  # Noun
-        elif tag.startswith('VB'):
-            pos = 'v'  # Verb
-        else:
-            pos = 'a'  # Adjective
-        try:
-            clean_token = lemmatizer.lemmatize(token, pos=pos).lower().strip()
-            clean_tokens.append(clean_token)
-        except:
-            continue  # Handle cases where lemmatization might fail
-    return clean_tokens
-
-
-class StartingVerbExtractor(BaseEstimator, TransformerMixin):
-    """Extracts whether the starting word in text is a verb.
-    """
-
-    def starting_verb(self, text):
-        """Checks if the first word of a sentence is a verb or 'RT'.
-
-        Args:
-            text (str): Input text.
-
-        Returns:
-            bool: True if the first word is a verb or 'RT', False otherwise.
-        """
-        sentence_list = nltk.sent_tokenize(text)
-        for sentence in sentence_list:
-            tokens = tokenize(sentence)
-            if not tokens:  # Handle empty sentences
-                continue
-            pos_tags = nltk.pos_tag([tokens[0]])  # pos tag only the first word
-            first_word, first_tag = pos_tags[0]
-            if first_tag in ['VB', 'VBP'] or first_word == 'RT':
-                return True
-        return False
-
-    def fit(self, X, y=None):
-        """Fit method (does nothing in this case).
-
-        Args:
-            X: Input data.
-            y: Target data (optional).
-
-        Returns:
-            self: Returns the instance itself.
-        """
-        return self
-
-    def transform(self, X):
-        """Transforms input data to a Pandas DataFrame of starting verb features.
-
-        Args:
-            X (Series or array-like): Input text data.
-
-        Returns:
-            DataFrame: Pandas DataFrame with binary starting verb features.
-        """
-        X_tagged = pd.Series(X).apply(self.starting_verb)
-        return pd.DataFrame(X_tagged)
+# ================== NEW: Added SMOTE and class weights ==================
 
 
 def build_model():
-    """Builds a machine learning pipeline with GridSearchCV for text classification.
-
-    The pipeline includes text processing (tokenization, TF-IDF),
-    a custom feature extractor (StartingVerbExtractor), and a
-    RandomForestClassifier. GridSearchCV is used for hyperparameter tuning.
-
-    Returns:
-        GridSearchCV: A GridSearchCV object fitted with the pipeline and parameters.
-    """
+    """Builds a machine learning pipeline with SMOTE and improved GridSearchCV."""
     pipeline = Pipeline([
         ('features', FeatureUnion([
             ('text_pipeline', Pipeline([
@@ -159,106 +33,49 @@ def build_model():
             ])),
             ('starting_verb', StartingVerbExtractor())
         ])),
-        ('clf', MultiOutputClassifier(RandomForestClassifier()))
+        ('smote', SMOTE(random_state=42)),  # Added SMOTE
+        ('clf', MultiOutputClassifier(
+            # Added class weights
+            RandomForestClassifier(class_weight='balanced')
+        ))
     ])
 
     parameters = {
         'features__text_pipeline__vect__ngram_range': [(1, 1), (1, 2)],
-        'clf__estimator__n_estimators': [50, 100],  # Reduce options here
-        'clf__estimator__min_samples_split': [2],  # Fix min_samples_split
-        'clf__estimator__max_depth': [None],  # Fix max_depth
+        'clf__estimator__n_estimators': [100, 200],  # Expanded options
+        'clf__estimator__max_depth': [None, 10, 20],
+        'clf__estimator__min_samples_split': [2, 5],  # More flexible
+        'smote__k_neighbors': [3, 5]  # SMOTE hyperparameters
     }
 
-    cv = GridSearchCV(pipeline, param_grid=parameters, verbose=3, n_jobs=-1)
+    return GridSearchCV(pipeline, parameters, cv=3, verbose=3, n_jobs=-1)
 
-    return cv
+# ================== NEW: Enhanced evaluation metrics ==================
 
 
 def evaluate_model(model, x_test, y_test, category_names):
-    """Evaluates model performance on the test data using classification metrics.
-
-    Prints a classification report for each category.
-
-    Args:
-        model: Trained machine learning model.
-        x_test (pd.DataFrame): Test features.
-        y_test (pd.DataFrame): Test targets.
-        category_names (list): List of category names.
-
-    Returns:
-        None
-    """
+    """Improved evaluation with macro F1-score and per-category metrics."""
     y_pred = model.predict(x_test)
 
-    # Convert predictions to DataFrame for easier comparison and reporting
-    y_pred_df = pd.DataFrame(
-        y_pred, columns=category_names, index=y_test.index)
+    # Overall metrics
+    macro_f1 = f1_score(y_test, y_pred, average='macro', zero_division=0)
+    print(f"\nMacro F1-Score: {macro_f1:.4f}")
 
+    # Per-category report
     for category in category_names:
-        print(f"Category: {category}\n")
-        print(classification_report(y_test[category], y_pred_df[category]))
+        f1 = f1_score(y_test[category], y_pred[:,
+                      y_test.columns.get_loc(category)], zero_division=0)
+        print(f"{category:<30} F1: {f1:.4f}")
 
-    # Calculate and print overall accuracy
-    overall_accuracy = (y_pred == y_test.values).mean()
-    print(f"Overall Accuracy: {overall_accuracy}")
+    # Full classification report
+    print("\nClassification Report:")
+    print(classification_report(y_test, y_pred,
+          target_names=category_names, zero_division=0))
+
+# ================== UPDATED: Replaced pickle with joblib ==================
 
 
 def save_model(model, model_filepath):
-    """Saves the trained model to a pickle file.
-
-    Args:
-        model: Trained machine learning model.
-        model_filepath (str): Filepath for the pickle file.
-
-    Raises:
-        OSError: If there's an issue with file operations (e.g., directory not found).
-        pickle.PicklingError: If there's an error during pickling.
-    """
-    try:
-        # Ensure the directory exists
-        os.makedirs(os.path.dirname(model_filepath), exist_ok=True)
-        with open(model_filepath, 'wb') as file:
-            pickle.dump(model, file)
-    except OSError as e:
-        print(f"Error saving model: {e}")
-        raise  # Re-raise the exception after printing
-    except pickle.PicklingError as e:
-        print(f"Error pickling model: {e}")
-        raise
-    except Exception as e:  # catch any other exception
-        print(f"An unexpected error occurred: {e}")
-        raise
-
-
-def main():
-    """
-    Main function to execute the ML pipeline.
-    """
-    if len(sys.argv) == 3:
-        database_filepath, model_filepath = sys.argv[1:]
-
-        print(f'Loading data from database: {database_filepath}')
-        X, Y, category_names = load_data(database_filepath)
-        X_train, X_test, Y_train, Y_test = split_data(X, Y)
-
-        print('Building model...')
-        model = build_model()
-
-        print('Training model...')
-        model.fit(X_train, Y_train)
-
-        print('Evaluating model...')
-        evaluate_model(model, X_test, Y_test, category_names)
-
-        print(f'Saving model to: {model_filepath}')
-        save_model(model, model_filepath)
-
-        print('Model saved!')
-    else:
-        print('Please provide the filepath of the disaster response database as the first argument '
-              'and the filepath of the pickle file to save the model to as the second argument. \n\nExample: '
-              'python train_classifier.py data/DisasterResponse.db models/classifier.pkl')
-
-
-if __name__ == '__main__':
-    main()
+    """Saves model using joblib for efficiency."""
+    os.makedirs(os.path.dirname(model_filepath), exist_ok=True)
+    joblib.dump(model, model_filepath)
