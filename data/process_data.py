@@ -136,20 +136,17 @@ def clean_data(df):
     - df (DataFrame): Cleaned DataFrame.
     """
     try:
-        # Use multiprocessing to clean rows in parallel
-        num_cores = multiprocessing.cpu_count()
-        cleaned_data = Parallel(n_jobs=num_cores)(
-            delayed(clean_row)(row) for _, row in df.iterrows())
-        df = pd.DataFrame(cleaned_data)
+        # Clean rows using apply
+        cleaned_data = df.apply(clean_row, axis=1)
 
         # Remove duplicates
-        initial_length = len(df)
-        df = df.drop_duplicates()
-        final_length = len(df)
+        initial_length = len(cleaned_data)
+        cleaned_data = cleaned_data.drop_duplicates()
+        final_length = len(cleaned_data)
         logging.info(f"Removed {initial_length -
                      final_length} duplicate rows.")
 
-        return df
+        return cleaned_data
     except Exception as e:
         logging.error(f"Error cleaning data: {e}")
         sys.exit(1)
