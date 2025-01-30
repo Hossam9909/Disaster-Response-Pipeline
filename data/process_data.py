@@ -103,15 +103,15 @@ def clean_row(row):
     """
     try:
         # Split categories into separate columns
-        categories_split = row['categories'].str.split(';', expand=True)
+        categories_split = row['categories'].split(';')  # Change this line
+        categories_split = pd.Series(categories_split)  # Convert to Series
         # Extract column names
-        category_colnames = categories_split.iloc[0].apply(lambda x: x[:-2])
+        category_colnames = categories_split.apply(lambda x: x[:-2])
         categories_split.columns = category_colnames
 
         # Convert category values to binary
         for column in categories_split:
-            categories_split[column] = categories_split[column].str[-1].astype(
-                int)
+            categories_split[column] = categories_split[column][-1].astype(int)
             if not categories_split[column].isin([0, 1]).all():
                 logging.warning(
                     f"Non-binary values found in column {column}. They will be corrected.")
