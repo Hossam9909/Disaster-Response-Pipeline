@@ -14,6 +14,7 @@ from plotly.graph_objs import Bar
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
 from nltk import pos_tag
+from models.train_classifier import *
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///feedback.db'
