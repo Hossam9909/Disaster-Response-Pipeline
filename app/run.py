@@ -9,7 +9,7 @@ import logging
 import plotly.express as px
 import seaborn as sns
 from sqlalchemy import create_engine
-from flask import Flask, render_template, request, redirect
+from flask import Flask, render_template, request, redirect , flash
 from flask_sqlalchemy import SQLAlchemy
 from plotly.graph_objs import Bar
 from nltk.tokenize import word_tokenize
@@ -101,7 +101,9 @@ def go():
             )
             db.session.add(new_feedback)
             db.session.commit()
+            flash("Thank you! Your feedback has been submitted.")
             return redirect('/')
+
 
     query = request.args.get('query', '')
     if not query.strip():
