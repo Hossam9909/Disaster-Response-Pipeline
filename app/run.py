@@ -61,7 +61,8 @@ def create_visualizations():
 
     # Time series analysis
     df['date'] = pd.to_datetime(
-        df['message'].str.extract(r'(\d{4}-\d{2}-\d{2})')[0])
+        df['message'].str.extract(r'(\d{4}-\d{2}-\d{2})')[0], errors='coerce')
+
     time_series = df.groupby(
         [df['date'].dt.to_period('M'), 'genre']).size().unstack()
 
