@@ -5,6 +5,7 @@ import string
 import pandas as pd
 import joblib
 import plotly
+import logging
 import plotly.express as px
 import seaborn as sns
 from sqlalchemy import create_engine
@@ -14,6 +15,7 @@ from plotly.graph_objs import Bar
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
 from nltk import pos_tag
+from functools import lru_cache
 from models.train_classifier import *
 
 app = Flask(__name__)
@@ -40,7 +42,12 @@ RECOMMENDATIONS = {
 # Load data and model
 engine = create_engine('sqlite:///../data/DisasterResponse.db')
 df = pd.read_sql_table('DisasterResponse', engine)
-model = joblib.load("../models/classifier.pkl")
+@lru_cache(maxsize=1)
+def load_model():
+    return joblib.load("../models/classifier.pkl")
+
+model = load_model()
+
 
 # ================== NEW: Enhanced Visualizations ==================
 
@@ -101,15 +108,16 @@ def go():
     try:
         pred = model.predict([query])[0]
         results = dict(zip(df.columns[4:-1], pred))
-        recommendations = [RECOMMENDATIONS[cat]
-                           for cat in results if results[cat] and cat in RECOMMENDATIONS]
+        recommendations = [RECOMMENDATIONS[cat] for cat in results if results[cat] and cat in RECOMMENDATIONS]
 
         return render_template('go.html',
                                query=query,
                                results=results,
                                recommendations=recommendations)
     except Exception as e:
+        logging.exception("Error during classification")
         return render_template('go.html', error=f"Error processing request: {str(e)}")
+
 
 
 if __name__ == '__main__':
