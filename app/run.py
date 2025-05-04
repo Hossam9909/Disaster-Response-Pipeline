@@ -20,7 +20,9 @@ from models.train_classifier import *
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///feedback.db'
+app.secret_key = os.urandom(24)
 db = SQLAlchemy(app)
+
 
 # ================== NEW: Feedback Model ==================
 
