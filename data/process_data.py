@@ -105,18 +105,21 @@ def clean_row(row):
         # Split categories into separate columns
         categories_split = row['categories'].split(';')  # Change this line
         categories_split = pd.Series(categories_split)  # Convert to Series
+
         # Extract column names
         category_colnames = categories_split.apply(lambda x: x[:-2])
         categories_split.columns = category_colnames
 
         # Convert category values to binary
         for column in categories_split:
-            categories_split[column] = categories_split[column][-1].astype(int)
-            if not categories_split[column].isin([0, 1]).all():
-                logging.warning(
-                    f"Non-binary values found in column {column}. They will be corrected.")
-                categories_split[column] = categories_split[column].apply(
-                    lambda x: 1 if x > 0 else 0)
+            # Check if the value is a string and ends with '1' or '0'
+            if isinstance(categories_split[column], str) and categories_split[column][-1] in ['0', '1']:
+                categories_split[column] = int(categories_split[column][-1])
+            else:
+                logging.warning(f"Unexpected value found in column {column}: {
+                                categories_split[column]}. Setting to 0.")
+                # Default to 0 for unexpected values
+                categories_split[column] = 0
 
         # Replace categories column with the new category columns
         row = row.drop('categories')
@@ -207,9 +210,13 @@ def main():
 
         logging.info('Cleaned data saved to database successfully!')
     else:
-        logging.error('Please provide the filepaths of the messages and categories datasets as the first and second argument '
-                      'and the filepath of the database to save the cleaned data to as the third argument. \n\nExample: python '
-                      'process_data.py data/disaster_messages.csv data/disaster_categories.csv data/DisasterResponse.db')
+        logging.error(
+            "Please provide the filepaths of messages and categories as the first "
+            "and second arguments, and the database filepath as the third.\n"
+            "Example: python process_data.py data/disaster_messages.csv "
+            "data/disaster_categories.csv data/DisasterResponse.db"
+        )
+        sys.exit(1)
 
 
 if __name__ == '__main__':
