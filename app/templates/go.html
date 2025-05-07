@@ -3,30 +3,38 @@
 {% block title %}Classification Results{% endblock %}
 
 {% block message %}
-    <hr />
-    <h4 class="text-center">Input Message</h4>
-    <p class="text-center text-muted"><i>{{ query }}</i></p>
+<hr />
+<h4 class="text-center">Input Message</h4>
+<p class="text-center text-muted"><i>{{ query }}</i></p>
 {% endblock %}
 
 {% block content %}
-    <div class="container mt-4">
-        <h2 class="text-center">Classification Results</h2>
-        <div class="row justify-content-center">
-            <div class="col-md-8">
-                <ul class="list-group">
-                    {% for category, classification in classification_result.items() %}
-                        {% if classification == 1 %}
-                            <li class="list-group-item list-group-item-success text-center fw-bold">
-                                {{ category.replace('_', ' ').title() }}
-                            </li>
-                        {% else %}
-                            <li class="list-group-item list-group-item-secondary text-center">
-                                {{ category.replace('_', ' ').title() }}
-                            </li>
-                        {% endif %}
-                    {% endfor %}
-                </ul>
-            </div>
+<div class="container mt-4">
+    {% if classification_result is defined %}
+    <h2 class="text-center">Classification Results</h2>
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <ul class="list-group">
+                {% for category, classification in classification_result.items() %}
+                {% if classification == 1 %}
+                <li class="list-group-item list-group-item-success text-center fw-bold">
+                    {{ category.replace('_', ' ').title() }}
+                </li>
+                {% else %}
+                <li class="list-group-item list-group-item-secondary text-center">
+                    {{ category.replace('_', ' ').title() }}
+                </li>
+                {% endif %}
+                {% endfor %}
+            </ul>
         </div>
     </div>
+    {% elif error is defined %}
+    <div class="alert alert-danger text-center" role="alert">
+        <strong>Error:</strong> {{ error }}
+    </div>
+    {% else %}
+    <p class="text-center">No classification result available.</p>
+    {% endif %}
+</div>
 {% endblock %}
