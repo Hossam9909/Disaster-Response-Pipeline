@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,52 +12,61 @@
 
 <body>
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
-    <div class="container">
-        <a class="navbar-brand" href="/">Disaster Response</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav ms-auto">
-                <li class="nav-item"><a class="nav-link" href="https://www.udacity.com/">Made with Udacity</a></li>
-                <li class="nav-item"><a class="nav-link" href="https://github.com/">Contact</a></li>
-            </ul>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+        <div class="container">
+            <a class="navbar-brand" href="/">Disaster Response</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="https://www.udacity.com/">Made with Udacity</a></li>
+                    <li class="nav-item"><a class="nav-link" href="https://github.com/">Contact</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-5 pt-5">
+        <div class="jumbotron text-center mb-5">
+            <h1 class="display-4">Disaster Response Project</h1>
+            <p class="lead">Analyzing disaster-related messages for better emergency response</p>
+            <hr class="my-4">
+            <form action="/go" method="get" class="row g-3 justify-content-center">
+                <div class="col-md-6">
+                    <input type="text" class="form-control" name="query" placeholder="Enter a message to classify"
+                        required>
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-success btn-lg">Classify Message</button>
+                </div>
+            </form>
+        </div>
+
+        {% block message %}{% endblock %}
+
+        <div class="mt-5">
+            {% block content %}
+            <h2 class="text-center mb-4">Visual Insights from Training Dataset</h2>
+            <div class="row">
+                <div class="col-12">
+                    {% for id in ids | safe | fromjson %}
+                    <div id="{{ id }}" class="my-5 shadow-sm p-3 bg-light rounded"></div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endblock %}
         </div>
     </div>
-</nav>
 
-<div class="container mt-5 pt-5">
-    <div class="jumbotron text-center">
-        <h1 class="display-4">Disaster Response Project</h1>
-        <p class="lead">Analyzing disaster-related messages for better emergency response</p>
-        <hr class="my-4">
-        <form action="/go" method="get" class="row g-3 justify-content-center">
-            <div class="col-md-6">
-                <input type="text" class="form-control" name="query" placeholder="Enter a message to classify" required>
-            </div>
-            <div class="col-auto">
-                <button type="submit" class="btn btn-success btn-lg">Classify Message</button>
-            </div>
-        </form>
-    </div>
-
-    {% block message %}{% endblock %}
-
-    <div class="mt-5">
-        {% block content %}
-        <h2 class="text-center">Overview of Training Dataset</h2>
-        {% endblock %}
-    </div>
-</div>
-
-<script type="text/javascript">
-    const graphs = {{ graphJSON | safe }};
-    const ids = {{ ids | safe }};
-    ids.forEach((id, index) => {
-        Plotly.newPlot(id, graphs[index].data, graphs[index].layout);
-    });
-</script>
+    <script type="text/javascript">
+        const graphs = {{ graphJSON | safe }};
+        const ids = {{ ids | safe }};
+        ids.forEach((id, index) => {
+            Plotly.newPlot(id, graphs[index].data, graphs[index].layout);
+        });
+    </script>
 
 </body>
+
 </html>
