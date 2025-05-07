@@ -5,6 +5,7 @@ import re
 import string
 import multiprocessing
 import pandas as pd
+import sqlite3
 from sqlalchemy import create_engine
 from joblib import Parallel, delayed
 
@@ -93,63 +94,44 @@ def tokenize(text):
     return tokens
 
 
-def clean_row(row):
-    """
-    Clean a single row of the DataFrame.
-    Args:
-    - row (Series): A row of the DataFrame.
-    Returns:
-    - row (Series): Cleaned row.
-    """
-    try:
-        # Split categories into separate columns
-        categories_split = row['categories'].split(';')  # Change this line
-        categories_split = pd.Series(categories_split)  # Convert to Series
-
-        # Extract column names
-        category_colnames = categories_split.apply(lambda x: x[:-2])
-        categories_split.columns = category_colnames
-
-        # Convert category values to binary
-        for column in categories_split:
-            # Check if the value is a string and ends with '1' or '0'
-            if isinstance(categories_split[column], str) and categories_split[column][-1] in ['0', '1']:
-                categories_split[column] = int(categories_split[column][-1])
-            else:
-                logging.warning(f"Unexpected value found in column {column}: {
-                                categories_split[column]}. Setting to 0.")
-                # Default to 0 for unexpected values
-                categories_split[column] = 0
-
-        # Replace categories column with the new category columns
-        row = row.drop('categories')
-        row = pd.concat([row, categories_split], axis=0)
-        return row
-    except Exception as e:
-        logging.error(f"Error cleaning row: {e}")
-        return row
-
-
 def clean_data(df):
     """
-    Clean the merged DataFrame using parallel processing.
+    Clean the merged DataFrame of messages and categories.
     Args:
     - df (DataFrame): Merged DataFrame of messages and categories.
     Returns:
     - df (DataFrame): Cleaned DataFrame.
     """
     try:
-        # Clean rows using apply
-        cleaned_data = df.apply(clean_row, axis=1)
+        # Split the categories column into separate columns
+        categories = df['categories'].str.split(';', expand=True)
+
+        # Extract new column names from the first row
+        row = categories.iloc[0]
+        category_colnames = row.apply(lambda x: x.split('-')[0])
+        categories.columns = category_colnames
+
+        # Convert category values to binary (0 or 1)
+        for column in categories:
+            categories[column] = categories[column].astype(str).str[-1]
+            categories[column] = pd.to_numeric(categories[column], errors='coerce').fillna(0).astype(int)
+            # Ensure all values are 0 or 1
+            categories[column] = categories[column].apply(lambda x: 1 if x > 1 else x)
+
+        # Drop the original categories column from df
+        df = df.drop('categories', axis=1)
+
+        # Concatenate the original DataFrame with the new category columns
+        df = pd.concat([df, categories], axis=1)
 
         # Remove duplicates
-        initial_length = len(cleaned_data)
-        cleaned_data = cleaned_data.drop_duplicates()
-        final_length = len(cleaned_data)
-        logging.info(f"Removed {initial_length -
-                     final_length} duplicate rows.")
+        initial_length = len(df)
+        df = df.drop_duplicates()
+        final_length = len(df)
+        logging.info(f"Removed {initial_length - final_length} duplicate rows.")
 
-        return cleaned_data
+        return df
+
     except Exception as e:
         logging.error(f"Error cleaning data: {e}")
         sys.exit(1)
@@ -157,14 +139,16 @@ def clean_data(df):
 
 def save_cleaned_data(df, database_filepath):
     """
-    Save the cleaned DataFrame into a SQLite database.
+    Save the cleaned DataFrame into a SQLite database using sqlite3 directly.
+    
     Args:
     - df (DataFrame): Cleaned DataFrame.
     - database_filepath (str): Filepath for the SQLite database.
     """
     try:
-        engine = create_engine(f'sqlite:///{database_filepath}')
-        df.to_sql('DisasterResponse', engine, index=False, if_exists='replace')
+        conn = sqlite3.connect(database_filepath)
+        df.to_sql('DisasterResponse', conn, index=False, if_exists='replace')
+        conn.close()
         logging.info(f"Cleaned data saved to database at {database_filepath}.")
     except Exception as e:
         logging.error(f"Error saving data to database: {e}")
