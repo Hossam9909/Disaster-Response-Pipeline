@@ -1,19 +1,21 @@
 import sys
+import re
+import string
 import pandas as pd
 import joblib
+import sqlite3
 from sqlalchemy import create_engine
 from sklearn.pipeline import Pipeline, FeatureUnion
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.multioutput import MultiOutputClassifier
-from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.model_selection import train_test_split, GridSearchCV ,RandomizedSearchCV
 from sklearn.metrics import classification_report, f1_score
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
 from nltk import pos_tag
 import nltk
-from imblearn.pipeline import Pipeline as ImbPipeline
-from imblearn.over_sampling import SMOTE
+from sklearn.pipeline import Pipeline
 
 # Download NLTK resources
 nltk.download(['punkt', 'wordnet', 'averaged_perceptron_tagger'])
@@ -22,20 +24,22 @@ nltk.download(['punkt', 'wordnet', 'averaged_perceptron_tagger'])
 def load_data(database_filepath):
     """
     Load data from SQLite database.
-
+    
     Args:
-        database_filepath (str): Path to the SQLite database.
-
+    - database_filepath (str): Path to the SQLite database file.
+    
     Returns:
-        X (pd.Series): Messages (features).
-        Y (pd.DataFrame): Categories (targets).
-        category_names (list): List of category names.
+    - X (Series): Messages.
+    - Y (DataFrame): Categories.
+    - category_names (list): Names of category columns.
     """
-    engine = create_engine(f'sqlite:///{database_filepath}')
-    df = pd.read_sql_table('DisasterResponse', engine)
+    with sqlite3.connect(database_filepath) as conn:
+        df = pd.read_sql_query("SELECT * FROM DisasterResponse", conn)
+
     X = df['message']
-    Y = df.iloc[:, 4:]  # Exclude non-category columns
+    Y = df.iloc[:, 4:]  # Assuming first 4 columns are: id, message, original, genre
     category_names = Y.columns.tolist()
+    
     return X, Y, category_names
 
 
@@ -76,31 +80,28 @@ def build_model():
     Returns:
         model (GridSearchCV): Optimized model with hyperparameter tuning.
     """
-    pipeline = ImbPipeline([
+    pipeline = Pipeline([
         ('features', FeatureUnion([
             ('text_pipeline', Pipeline([
                 ('vect', CountVectorizer(tokenizer=tokenize)),
                 ('tfidf', TfidfTransformer())
             ]))
         ])),
-        ('smote', SMOTE(random_state=42)),  # Handle imbalanced data
         ('clf', MultiOutputClassifier(
-            # Handle class imbalance
             RandomForestClassifier(class_weight='balanced')
         ))
     ])
 
     # Hyperparameter tuning
     parameters = {
-        'features__text_pipeline__vect__ngram_range': [(1, 1), (1, 2)],
-        'clf__estimator__n_estimators': [100, 200],
-        'clf__estimator__max_depth': [None, 10, 20],
-        'clf__estimator__min_samples_split': [2, 5],
-        'smote__k_neighbors': [3, 5]
+        'features__text_pipeline__vect__ngram_range': [(1, 1)],
+        'clf__estimator__n_estimators': [10],
+        'clf__estimator__max_depth': [None],
+        'clf__estimator__min_samples_split': [2],
     }
 
-    model = GridSearchCV(pipeline, param_grid=parameters,
-                         cv=3, verbose=3, n_jobs=-1)
+    model = RandomizedSearchCV(pipeline, param_distributions=parameters, n_iter=3, cv=2, verbose=3, n_jobs=-1)
+
     return model
 
 
@@ -118,13 +119,13 @@ def evaluate_model(model, X_test, Y_test, category_names):
 
     # Print classification report for each category
     for i, category in enumerate(category_names):
-        print(f"Category: {category}")
+        print(f"\nEvaluating category: {category}")
         print(classification_report(
             Y_test.iloc[:, i], Y_pred[:, i], zero_division=0))
 
     # Calculate and print macro F1-score
     macro_f1 = f1_score(Y_test, Y_pred, average='macro', zero_division=0)
-    print(f"\nMacro F1-Score: {macro_f1:.4f}")
+    print(f"\nOverall Macro F1-Score: {macro_f1:.4f}")
 
 
 def save_model(model, model_filepath):
@@ -152,6 +153,8 @@ def main():
 
         print('Training model...')
         model.fit(X_train, Y_train)
+        
+        print(f"Best Parameters: {model.best_params_}")
 
         print('Evaluating model...')
         evaluate_model(model, X_test, Y_test, category_names)
