@@ -42,11 +42,14 @@ RECOMMENDATIONS = {
 }
 
 # Load data and model
-engine = create_engine('sqlite:///../data/DisasterResponse.db')
+db_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'DisasterResponse.db')
+engine = create_engine(f'sqlite:///{os.path.abspath(db_path)}')
 df = pd.read_sql_table('DisasterResponse', engine)
 @lru_cache(maxsize=1)
 def load_model():
-    return joblib.load("../models/classifier.pkl")
+    model_path = os.path.join(os.path.dirname(__file__), '..', 'models', 'classifier.pkl')
+    return joblib.load(os.path.abspath(model_path))
+
 
 model = load_model()
 
@@ -56,35 +59,70 @@ model = load_model()
 
 def create_visualizations():
     """Generate all visualizations for the dashboard."""
+    visuals = {}
+
     # Category distribution
     category_counts = df.iloc[:, 4:].sum().sort_values(ascending=False)
+    visuals['category_dist'] = px.bar(
+        x=category_counts.index.str.replace('_', ' ').str.title(),
+        y=category_counts.values,
+        labels={'x': 'Category', 'y': 'Count'},
+        title='Message Category Distribution'
+    )
 
     # Time series analysis
-    df['date'] = pd.to_datetime(
-        df['message'].str.extract(r'(\d{4}-\d{2}-\d{2})')[0], errors='coerce')
-
-    time_series = df.groupby(
-        [df['date'].dt.to_period('M'), 'genre']).size().unstack()
+    df['date'] = pd.to_datetime(df['message'].str.extract(r'(\d{4}-\d{2}-\d{2})')[0], errors='coerce')
+    time_series = df.groupby([df['date'].dt.to_period('M'), 'genre']).size().unstack()
+    visuals['time_series'] = px.line(
+        time_series,
+        title='Messages Over Time by Genre'
+    )
 
     # Correlation heatmap
     corr_matrix = df.iloc[:, 4:-1].corr()
+    visuals['correlation'] = px.imshow(
+        corr_matrix,
+        title='Category Correlation Heatmap'
+    )
 
-    return {
-        'category_dist': px.bar(category_counts, title='Message Categories'),
-        'time_series': px.line(time_series, title='Messages Over Time'),
-        'correlation': px.imshow(corr_matrix, title='Category Correlation')
-    }
+    # New: Message Length Distribution
+    df['msg_len'] = df['message'].apply(lambda x: len(x))
+    visuals['msg_len_dist'] = px.histogram(
+        df, x='msg_len', nbins=50,
+        title='Distribution of Message Lengths',
+        labels={'msg_len': 'Message Length (chars)'}
+    )
+
+    # New: Top Words
+    from collections import Counter
+    import nltk
+    nltk.download('stopwords')
+    from nltk.corpus import stopwords
+    stop_words = set(stopwords.words('english'))
+
+    all_words = ' '.join(df['message'].dropna()).lower()
+    tokens = word_tokenize(all_words)
+    words = [word for word in tokens if word.isalpha() and word not in stop_words]
+    common_words = Counter(words).most_common(10)
+    word_df = pd.DataFrame(common_words, columns=['Word', 'Count'])
+
+    visuals['top_words'] = px.bar(
+        word_df, x='Word', y='Count', title='Top 10 Most Frequent Words'
+    )
+
+    return visuals
+
 
 # ================== UPDATED: Enhanced Index Route ==================
 
 
 @app.route('/')
 def index():
-    graphs = create_visualizations()
-    return render_template('master.html',
-                           category_graph=graphs['category_dist'].to_html(),
-                           time_graph=graphs['time_series'].to_html(),
-                           corr_graph=graphs['correlation'].to_html())
+    visuals = create_visualizations()
+    graphJSON = json.dumps([fig.to_dict() for fig in visuals.values()])
+    ids = [f"graph-{i}" for i in range(len(visuals))]
+    return render_template('master.html', graphJSON=graphJSON, ids=json.dumps(ids))
+
 
 # ================== UPDATED: Enhanced Classification Route ==================
 
@@ -116,9 +154,10 @@ def go():
         recommendations = [RECOMMENDATIONS[cat] for cat in results if results[cat] and cat in RECOMMENDATIONS]
 
         return render_template('go.html',
-                               query=query,
-                               results=results,
-                               recommendations=recommendations)
+                       query=query,
+                       classification_result=results,
+                       recommendations=recommendations)
+
     except Exception as e:
         logging.exception("Error during classification")
         return render_template('go.html', error=f"Error processing request: {str(e)}")
