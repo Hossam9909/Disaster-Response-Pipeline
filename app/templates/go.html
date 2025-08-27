@@ -1,40 +1,569 @@
-{% extends "master.html" %}
+<!DOCTYPE html>
+<!--
+Disaster Response Classification Results Template
 
-{% block title %}Classification Results{% endblock %}
+This HTML template displays classification results for disaster response messages.
+It uses Bootstrap 5 for styling and includes interactive elements for user feedback.
 
-{% block message %}
-<hr />
-<h4 class="text-center">Input Message</h4>
-<p class="text-center text-muted"><i>{{ query }}</i></p>
-{% endblock %}
+Template Variables:
+    query (str): The input message that was classified
+    classification_result (dict): Dictionary of categories and their classification results (0 or 1)
+    error (str, optional): Error message if classification failed
+    recommendations (list, optional): List of recommended actions based on classification
+    word_analysis (dict, optional): Analysis data for word frequency in dataset
+    word_graphs (list, optional): Plotly graph data for visualizations
+    word_ids (list, optional): IDs for word analysis graph containers
+    word_graph_titles (list, optional): Titles for word analysis graphs
 
-{% block content %}
-<div class="container mt-4">
-    {% if classification_result is defined %}
-    <h2 class="text-center">Classification Results</h2>
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <ul class="list-group">
-                {% for category, classification in classification_result.items() %}
-                {% if classification == 1 %}
-                <li class="list-group-item list-group-item-success text-center fw-bold">
-                    {{ category.replace('_', ' ').title() }}
-                </li>
-                {% else %}
-                <li class="list-group-item list-group-item-secondary text-center">
-                    {{ category.replace('_', ' ').title() }}
-                </li>
-                {% endif %}
-                {% endfor %}
-            </ul>
+Dependencies:
+    - Bootstrap 5.1.3 (CSS framework)
+    - Font Awesome 5.15.4 (icons)
+    - Plotly.js (for visualizations, loaded separately)
+
+Author: Disaster Response Team
+Version: 1.0
+-->
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Classification Results - Disaster Response</title>
+
+    <!-- Bootstrap CSS for responsive design and styling -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Font Awesome for icons throughout the interface -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+</head>
+
+<body>
+    <!-- Navigation Bar -->
+    <!-- Simple dark navigation bar with brand link -->
+    <nav class="navbar navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">Disaster Response</a>
         </div>
+    </nav>
+
+    <!-- Input Message Display Section -->
+    <!-- Shows the message that was classified in a prominent styled box -->
+    <div class="message-box text-center">
+        <h4 class="mb-3">Input Message</h4>
+        <!-- Display the query message in italics with larger font -->
+        <p class="mb-0 fs-5"><i>"{{ query }}"</i></p>
     </div>
-    {% elif error is defined %}
-    <div class="alert alert-danger text-center" role="alert">
-        <strong>Error:</strong> {{ error }}
+
+    <div class="container mt-4">
+        <!-- Flash Messages Section -->
+        <!-- Display any flash messages from the Flask session -->
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <div class="row mt-3">
+            <div class="col-12">
+                {% for message in messages %}
+                <!-- Bootstrap alert for success messages with dismiss button -->
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        {% if error is defined %}
+        <!-- Error Display Section -->
+        <!-- Show error message if classification failed -->
+        <div class="row">
+            <div class="col-12">
+                <div class="alert alert-danger text-center" role="alert">
+                    <h5 class="alert-heading">Classification Error</h5>
+                    <p><strong>Error:</strong> {{ error }}</p>
+                    <hr>
+                    <!-- Button to return to main page and try again -->
+                    <a href="/" class="btn btn-outline-danger">Try Again</a>
+                </div>
+            </div>
+        </div>
+
+        {% elif classification_result is defined %}
+        <!-- Classification Results Section -->
+        <!-- Main results display when classification is successful -->
+        <div class="row justify-content-center">
+            <div class="col-lg-8 col-md-10">
+                <div class="result-container">
+                    <h2 class="text-center mb-4">Classification Results</h2>
+
+                    <!-- Categories List -->
+                    <div class="row">
+                        <div class="col-12">
+                            <!-- Separate categories into positive and negative classifications -->
+                            {% set positive_categories = [] %}
+                            {% set negative_categories = [] %}
+                            {% for category, classification in classification_result.items() %}
+                            {% if classification == 1 %}
+                            {% set _ = positive_categories.append(category) %}
+                            {% else %}
+                            {% set _ = negative_categories.append(category) %}
+                            {% endif %}
+                            {% endfor %}
+
+                            <!-- Positive Classifications Display -->
+                            <!-- Show detected categories in highlighted cards -->
+                            {% if positive_categories %}
+                            <h5 class="text-success mb-3">
+                                <i class="fas fa-check-circle me-2"></i>Detected Categories:
+                            </h5>
+                            <div class="row mb-4">
+                                {% for category in positive_categories %}
+                                <div class="col-md-6 mb-2">
+                                    <!-- Individual category card with positive styling -->
+                                    <div class="category-positive">
+                                        <!-- Format category name: replace underscores with spaces and title case -->
+                                        <strong>{{ category.replace('_', ' ').title() }}</strong>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+
+                            <!-- All Categories (Traditional List View) -->
+                            <!-- Comprehensive list showing all categories with their status -->
+                            <h5 class="mb-3">All Categories:</h5>
+                            <ul class="list-group mb-4">
+                                {% for category, classification in classification_result.items() %}
+                                {% if classification == 1 %}
+                                <!-- Detected category with success styling -->
+                                <li
+                                    class="list-group-item list-group-item-success d-flex justify-content-between align-items-center">
+                                    <span class="fw-bold">{{ category.replace('_', ' ').title() }}</span>
+                                    <span class="badge bg-success rounded-pill">✓ Detected</span>
+                                </li>
+                                {% else %}
+                                <!-- Non-detected category with muted styling -->
+                                <li
+                                    class="list-group-item list-group-item-light d-flex justify-content-between align-items-center text-muted">
+                                    <span>{{ category.replace('_', ' ').title() }}</span>
+                                    <span class="badge bg-secondary rounded-pill">Not Detected</span>
+                                </li>
+                                {% endif %}
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recommendations Section -->
+        <!-- Display actionable recommendations based on classification results -->
+        {% if recommendations %}
+        <div class="row justify-content-center mt-4">
+            <div class="col-lg-8 col-md-10">
+                <div class="recommendations">
+                    <h5 class="text-warning mb-3">
+                        <i class="fas fa-lightbulb me-2"></i>Recommended Actions:
+                    </h5>
+                    {% for rec in recommendations %}
+                    <div class="mb-3">
+                        <!-- Recommendation text -->
+                        <p class="mb-2">{{ rec.text }}</p>
+                        <!-- Associated links for each recommendation -->
+                        <div class="d-flex gap-2 flex-wrap">
+                            {% for link in rec.links %}
+                            <a href="{{ link.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                {{ link.name }}
+                                <i class="fas fa-external-link-alt ms-1"></i>
+                            </a>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Word Analysis Section -->
+        <!-- Display detailed analysis of word frequency in the dataset -->
+        {% if word_analysis and word_analysis.message_count > 0 %}
+        <div class="row justify-content-center mt-4">
+            <div class="col-lg-10">
+                <div class="word-analysis-section">
+                    <h4 class="text-info mb-4">
+                        <i class="fas fa-chart-bar me-2"></i>Analysis for "{{ word_analysis.word.title() }}" in Dataset
+                    </h4>
+
+                    <!-- Word Statistics Summary -->
+                    <!-- Four-column grid showing key statistics about the analyzed word -->
+                    <div class="row mb-4">
+                        <!-- Messages found containing the word -->
+                        <div class="col-md-3 col-sm-6 mb-3">
+                            <div class="stat-card">
+                                <h5 class="stat-number">{{ word_analysis.message_count }}</h5>
+                                <p class="stat-label">Messages Found</p>
+                            </div>
+                        </div>
+                        <!-- Total occurrences of the word -->
+                        <div class="col-md-3 col-sm-6 mb-3">
+                            <div class="stat-card">
+                                <h5 class="stat-number">{{ word_analysis.total_occurrences }}</h5>
+                                <p class="stat-label">Total Occurrences</p>
+                            </div>
+                        </div>
+                        <!-- Percentage of dataset containing the word -->
+                        <div class="col-md-3 col-sm-6 mb-3">
+                            <div class="stat-card">
+                                <h5 class="stat-number">{{ word_analysis.percentage }}%</h5>
+                                <p class="stat-label">Dataset Coverage</p>
+                            </div>
+                        </div>
+                        <!-- Number of different categories containing the word -->
+                        <div class="col-md-3 col-sm-6 mb-3">
+                            <div class="stat-card">
+                                <h5 class="stat-number">{{ word_analysis.category_distribution|length }}</h5>
+                                <p class="stat-label">Categories Found</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Word Insights Section -->
+                    <!-- Display key insights about the word's usage patterns -->
+                    {% if word_analysis and word_analysis.insights %}
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="insights-card">
+                                <h5 class="mb-3"><i class="fas fa-lightbulb me-2"></i>Key Insights</h5>
+                                <ul class="insights-list">
+                                    {% for insight in word_analysis.insights %}
+                                    <li>{{ insight }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Visualizations Section -->
+                    <!-- Display Plotly charts for word analysis data -->
+                    {% if word_graphs %}
+                    <div class="row">
+                        {% for id in word_ids %}
+                        <div class="col-lg-6 col-md-12 mb-4">
+                            <div class="visualization-container">
+                                <!-- Optional chart title -->
+                                {% if word_graph_titles and word_graph_titles[loop.index0] %}
+                                <h5 class="text-center mb-3">{{ word_graph_titles[loop.index0] }}</h5>
+                                {% endif %}
+                                <!-- Container for Plotly chart -->
+                                <div id="{{ id }}"></div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <!-- Sample Messages Section -->
+                    <!-- Show example messages containing the analyzed word -->
+                    {% if word_analysis.sample_messages %}
+                    <div class="mt-4">
+                        <h5 class="mb-3">Sample Messages Containing "{{ word_analysis.word.title() }}":</h5>
+                        <div class="sample-messages">
+                            {% for message in word_analysis.sample_messages %}
+                            <div class="sample-message-card">
+                                <!-- Truncate long messages to 200 characters -->
+                                <p class="mb-0">{{ message[:200] }}{% if message|length > 200 %}...{% endif %}</p>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {% elif query %}
+        <!-- No Word Analysis Results -->
+        <!-- Display message when word is not found in dataset -->
+        <div class="row justify-content-center mt-4">
+            <div class="col-lg-8">
+                <div class="alert alert-info">
+                    <h5><i class="fas fa-info-circle me-2"></i>Word Analysis</h5>
+                    <p class="mb-0">No messages found containing "{{ query }}" in the training dataset.</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Feedback Section -->
+        <!-- Allow users to provide feedback on classification accuracy -->
+        <div class="row justify-content-center mt-4">
+            <div class="col-lg-8 col-md-10">
+                <div class="feedback-section text-center">
+                    <h5 class="mb-3">Help Us Improve</h5>
+                    <p class="mb-3 text-muted">Was this classification accurate? Your feedback helps improve our AI
+                        model.</p>
+
+                    <!-- Feedback form with hidden fields to preserve context -->
+                    <form method="POST" action="/go" class="d-inline-block">
+                        <!-- Hidden inputs to pass classification data -->
+                        <input type="hidden" name="message" value="{{ query }}">
+                        <input type="hidden" name="prediction" value="{{ classification_result | tojson }}">
+
+                        <!-- Feedback buttons -->
+                        <div class="btn-group" role="group" aria-label="Feedback buttons">
+                            <button type="submit" name="feedback" value="accurate" class="btn btn-success btn-lg">
+                                <i class="fas fa-thumbs-up me-2"></i>Accurate
+                            </button>
+                            <button type="submit" name="feedback" value="inaccurate" class="btn btn-danger btn-lg">
+                                <i class="fas fa-thumbs-down me-2"></i>Inaccurate
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation Section -->
+        <!-- Return to main page button -->
+        <div class="row justify-content-center mt-4 mb-5">
+            <div class="col-auto">
+                <a href="/" class="btn btn-back btn-lg text-white px-4">
+                    <i class="fas fa-arrow-left me-2"></i>Classify Another Message
+                </a>
+            </div>
+        </div>
+
+        {% else %}
+        <!-- No Results Section -->
+        <!-- Fallback display when no classification result is available -->
+        <div class="row justify-content-center">
+            <div class="col-lg-8 col-md-10">
+                <div class="alert alert-warning text-center" role="alert">
+                    <h5 class="alert-heading">No Classification Available</h5>
+                    <p class="mb-3">No classification result is available for this message.</p>
+                    <a href="/" class="btn btn-primary">Try Again</a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
     </div>
-    {% else %}
-    <p class="text-center">No classification result available.</p>
+
+    <!-- Custom CSS Styles -->
+    <!-- 
+Additional styling for enhanced user experience and visual appeal.
+Includes gradient backgrounds, hover effects, and responsive design.
+-->
+    <style>
+        /* Message display box with gradient background and shadow */
+        .message-box {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Main container for classification results */
+        .result-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+            margin: 1rem 0;
+        }
+
+        /* Styling for detected categories with green accent */
+        .category-positive {
+            background-color: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 0.75rem;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+
+        /* Hover effect for detected categories */
+        .category-positive:hover {
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transform: translateY(-1px);
+        }
+
+        /* Recommendations section with yellow accent */
+        .recommendations {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 1rem;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Back button with purple gradient */
+        .btn-back {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            transition: all 0.3s ease;
+        }
+
+        /* Back button hover effect */
+        .btn-back:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Feedback section styling */
+        .feedback-section {
+            background-color: #e9ecef;
+            border-radius: 10px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        /* List items with hover effects */
+        .list-group-item {
+            border: 1px solid rgba(0, 0, 0, 0.125);
+            transition: all 0.3s ease;
+        }
+
+        .list-group-item:hover {
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Badge styling for category status */
+        .badge {
+            font-size: 0.75em;
+            padding: 0.5em 0.75em;
+        }
+
+        /* Button group styling */
+        .btn-group .btn {
+            min-width: 120px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-group .btn:hover {
+            transform: translateY(-1px);
+        }
+
+        /* Word analysis section container */
+        .word-analysis-section {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+            margin: 1rem 0;
+        }
+
+        /* Statistics cards for word analysis */
+        .stat-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 8px;
+            padding: 1.5rem;
+            text-align: center;
+            border-left: 4px solid #007bff;
+            transition: all 0.3s ease;
+        }
+
+        /* Stat card hover effect */
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Large number display in stat cards */
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #007bff;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Label text in stat cards */
+        .stat-label {
+            color: #6c757d;
+            font-size: 0.9rem;
+            margin-bottom: 0;
+        }
+
+        /* Sample message display cards */
+        .sample-message-card {
+            background-color: #f8f9fa;
+            border-left: 4px solid #17a2b8;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 5px;
+        }
+
+        /* Container for chart visualizations */
+        .visualization-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            padding: 1rem;
+        }
+
+        /* Insights card styling with gradient background */
+        .insights-card {
+            background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+            border-radius: 8px;
+            padding: 1.5rem;
+            border-left: 4px solid #2196f3;
+        }
+
+        /* Insights list styling */
+        .insights-list {
+            margin-bottom: 0;
+            padding-left: 1.2rem;
+        }
+
+        .insights-list li {
+            margin-bottom: 0.5rem;
+            color: #424242;
+            font-size: 0.95rem;
+        }
+
+        /* Responsive design for mobile devices */
+        @media (max-width: 768px) {
+
+            /* Stack feedback buttons vertically on mobile */
+            .btn-group {
+                flex-direction: column;
+            }
+
+            .btn-group .btn {
+                margin-bottom: 0.5rem;
+                border-radius: 0.375rem !important;
+            }
+
+            /* Add margin to category cards on mobile */
+            .category-positive {
+                margin-bottom: 0.5rem;
+            }
+        }
+    </style>
+
+    <!-- Word Analysis Visualizations Script -->
+    <!-- JavaScript to render Plotly charts for word analysis data -->
+    {% if word_graphs %}
+    <script type="text/javascript">
+        // Iterate through each word graph and render with Plotly
+        {% for i in range(word_graphs | length) %}
+        try {
+            // Create responsive Plotly chart in the designated container
+            Plotly.newPlot('{{ word_ids[i] }}', {{ word_graphs[i]| safe }}, { responsive: true });
+    } catch (e) {
+            // Log any errors during chart rendering
+            console.error('Word plot error for {{ word_ids[i] }}', e);
+        }
+        {% endfor %}
+    </script>
     {% endif %}
-</div>
-{% endblock %}
+
+    <!-- Bootstrap JavaScript for interactive components -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+
+</html>
