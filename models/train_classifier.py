@@ -36,6 +36,22 @@ nltk.download(['punkt', 'wordnet', 'omw-1.4', 'stopwords'])
 # Suppress sklearn UserWarnings for cleaner output
 warnings.filterwarnings('ignore', category=UserWarning)
 
+# Precompute cleaned stop words globally to avoid pickling issues
+def _preprocess_stop_words():
+    """Helper function to preprocess stop words - called once at import time."""
+    lemmatizer = WordNetLemmatizer()
+    processed = set()
+    
+    for word in ENGLISH_STOP_WORDS:
+        tokens = word_tokenize(word.lower())
+        for token in tokens:
+            processed.add(lemmatizer.lemmatize(token.strip()))
+            
+    return list(processed)
+
+# Global variable - computed once to avoid serialization issues with multiprocessing
+CLEANED_STOP_WORDS = _preprocess_stop_words()
+
 
 def load_data(database_filepath):
     """Load disaster response data from SQLite database.
@@ -116,37 +132,6 @@ def tokenize(text):
     return tokens
 
 
-def preprocess_stop_words():
-    """Preprocess scikit-learn English stop words for consistency.
-    
-    Processes the default English stop words from scikit-learn to ensure
-    they match the same preprocessing applied to the main text data.
-    This prevents issues where stop words in the original form might
-    not match their processed versions in the tokenized text.
-
-    Returns:
-        list: Cleaned and lemmatized stop words that match the tokenization
-              process applied to the main text data.
-              
-    Note:
-        This ensures consistency between stop word filtering in TfidfVectorizer
-        and the custom tokenize function.
-    """
-    # Initialize lemmatizer for consistent processing
-    lemmatizer = WordNetLemmatizer()
-    processed = set()
-    
-    # Process each stop word using the same steps as main tokenization
-    for word in ENGLISH_STOP_WORDS:
-        # Tokenize each stop word (handles multi-word entries)
-        tokens = word_tokenize(word.lower())
-        for token in tokens:
-            # Apply lemmatization and add to processed set
-            processed.add(lemmatizer.lemmatize(token.strip()))
-            
-    return list(processed)
-
-
 def build_model():
     """Build a machine learning pipeline with GridSearchCV for hyperparameter tuning.
     
@@ -165,17 +150,14 @@ def build_model():
                       
     Note:
         - Uses 'balanced' class weights to handle potential class imbalance
-        - Employs parallel processing (n_jobs=-1) for faster grid search
+        - Disabled parallel processing (n_jobs=1) to avoid pickling issues
         - Random state set to 42 for reproducible results
     """
-    # Preprocess stop words to match tokenization consistency
-    cleaned_stop_words = preprocess_stop_words()
-
-    # Build the machine learning pipeline
+    # Build the machine learning pipeline using precomputed stop words
     pipeline = Pipeline([
         # Text feature extraction with custom tokenization
         ('vect', TfidfVectorizer(tokenizer=tokenize,
-                                 stop_words=cleaned_stop_words,
+                                 stop_words=CLEANED_STOP_WORDS,
                                  token_pattern=None)),  # Use custom tokenizer
         # Multi-output classifier for handling multiple categories per message
         ('clf', MultiOutputClassifier(RandomForestClassifier(
@@ -192,10 +174,11 @@ def build_model():
     }
 
     # Return GridSearchCV object with specified parameters
+    # Note: Using n_jobs=1 to avoid pickling issues with custom tokenizer
     return GridSearchCV(pipeline, param_grid=parameters,
                         scoring='f1_weighted',  # Use weighted F1 for imbalanced data
                         verbose=2,              # Show progress during search
-                        n_jobs=-1,              # Use all available CPU cores
+                        n_jobs=1,               # Disable multiprocessing to avoid pickling issues
                         cv=3)                   # 3-fold cross-validation
 
 
@@ -320,9 +303,9 @@ def main():
     """
     # Validate command line arguments
     if len(sys.argv) != 3:
-        print('Please provide the filepath of the disaster messages database as the first argument '
-              'and the filepath of the pickle file to save the model to as the second argument.\n\n'
-              'Example: python train_classifier.py ../data/DisasterResponse.db classifier.pkl')
+        print("""Please provide the filepath of the disaster messages database as the first argument and the filepath of the pickle file to save the model to as the second argument.
+
+Example: python train_classifier.py ../data/DisasterResponse.db classifier.pkl""")
         sys.exit(1)
 
     # Extract command line arguments
