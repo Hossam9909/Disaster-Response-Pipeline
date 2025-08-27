@@ -1,72 +1,625 @@
-<!DOCTYPE html>
+<!doctype html>
+<!--
+Disaster Response Project - Master Template
+
+This is the main template for the Disaster Response web application. It provides the base
+layout and functionality for message classification, data visualization, and dataset exploration.
+
+Features:
+    - Responsive Bootstrap 5 design
+    - Interactive message classification interface
+    - Dynamic Plotly visualizations
+    - DataTables-powered message browser with search and pagination
+    - Real-time feedback system
+    - Mobile-responsive design
+
+Template Variables:
+    title (str, optional): Page title, defaults to "Disaster Response Project"
+    graphJSON (list, optional): Legacy format for Plotly graph data
+    graphs (list, optional): Modern format for Plotly graph data  
+    ids (list, optional): Container IDs for Plotly visualizations
+    graph_titles (list, optional): Titles for visualization charts
+    table_data (list): List of message objects with classification data
+    columns (list): Column headers for the data table
+    row_limit (int): Number of rows to display in table
+    search_query (str, optional): Current search filter for messages
+
+Dependencies:
+    - Bootstrap 5.1.3 (CSS framework and components)
+    - DataTables 1.13.6 (table enhancement and pagination)
+    - Plotly.js (interactive data visualizations)
+    - jQuery 3.7.0 (required for DataTables)
+    - Font Awesome (icons, loaded separately)
+
+Routes:
+    - GET /: Main dashboard page
+    - GET /go: Message classification endpoint
+    - POST /go: Feedback submission endpoint
+
+Author: Disaster Response Development Team
+Version: 2.0
+Last Updated: 2024
+-->
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Disaster Response</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.24.1/plotly.min.js"></script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Dynamic page title with fallback -->
+    <title>{{ title | default("Disaster Response Project") }}</title>
+
+    <!-- Bootstrap CSS for responsive design and components -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- DataTables CSS for enhanced table functionality -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+
+    <!-- Plotly.js for interactive data visualizations -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+    <!--
+    Custom CSS Styles
+    
+    Comprehensive styling for the disaster response application including:
+    - Layout and color scheme
+    - DataTables customization for disaster data display
+    - Responsive design for mobile devices
+    - Interactive elements and hover effects
+    -->
+    <style>
+        /* Global Layout Styles */
+        /* Light gray background for better contrast with white containers */
+        body {
+            background-color: #f8f9fa;
+        }
+
+        /* Header section with gradient background */
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem 0;
+        }
+
+        /* Container for chart visualizations with shadow and rounded corners */
+        .visualization-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin: 1rem 0;
+            padding: 1.5rem;
+        }
+
+        /* Main table container with consistent styling */
+        .table-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+        }
+
+        /* Search and filter controls container */
+        .search-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+            margin: 1rem 0;
+        }
+
+        /* Message classification form with attractive gradient */
+        .classify-container {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            border-radius: 10px;
+            padding: 2rem;
+            margin: 2rem 0;
+        }
+
+        /* Classification button with transparent styling */
+        .btn-classify {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid white;
+            color: white;
+            font-weight: bold;
+        }
+
+        /* Classification button hover effect */
+        .btn-classify:hover {
+            background: white;
+            color: #11998e;
+        }
+
+        /* Alert messages with rounded corners */
+        .alert {
+            border-radius: 10px;
+        }
+
+        /* Badge sizing for category indicators */
+        .badge {
+            font-size: 0.8em;
+        }
+
+        /* DataTables Main Table Styling */
+        /* Fixed table layout for consistent column widths */
+        #data-table {
+            width: 100% !important;
+            table-layout: auto !important;
+            border-collapse: collapse !important;
+        }
+
+        /* Table Header Styling */
+        /* Dark header with sticky positioning for large datasets */
+        #data-table thead th {
+            background-color: #343a40 !important;
+            color: white !important;
+            padding: 12px 8px !important;
+            text-align: center !important;
+            font-weight: bold !important;
+            position: sticky !important;
+            top: 0 !important;
+            z-index: 10 !important;
+            border: 1px solid #495057 !important;
+            vertical-align: middle !important;
+            white-space: normal !important;
+            word-wrap: break-word !important;
+            font-size: 13px !important;
+            line-height: 1.3 !important;
+            min-height: 50px !important;
+        }
+
+        /* Message Column Header - Wider for message content */
+        #data-table thead th:first-child {
+            min-width: 300px !important;
+            width: 35% !important;
+            text-align: left !important;
+        }
+
+        /* Genre Column Header - Compact for genre labels */
+        #data-table thead th:nth-child(2) {
+            min-width: 80px !important;
+            width: 8% !important;
+        }
+
+        /* Category Column Headers - Compact for binary classifications */
+        #data-table thead th:nth-child(n+3) {
+            min-width: 70px !important;
+            width: 5% !important;
+            font-size: 11px !important;
+            padding: 8px 4px !important;
+        }
+
+        /* Table Body Cell Styling */
+        /* Standard cell padding and borders */
+        #data-table tbody td {
+            padding: 10px 8px !important;
+            border: 1px solid #dee2e6 !important;
+            vertical-align: top !important;
+            font-size: 13px !important;
+            word-wrap: break-word !important;
+        }
+
+        /* Message Column Cells - Allow text wrapping for long messages */
+        #data-table tbody td:first-child {
+            max-width: 400px !important;
+            min-width: 300px !important;
+            word-break: break-word !important;
+            white-space: normal !important;
+            overflow-wrap: anywhere !important;
+            line-height: 1.4 !important;
+        }
+
+        /* Genre Column Cells - Centered with no wrapping */
+        #data-table tbody td:nth-child(2) {
+            text-align: center !important;
+            white-space: nowrap !important;
+            min-width: 80px !important;
+        }
+
+        /* Category Column Cells - Centered binary indicators */
+        #data-table tbody td:nth-child(n+3) {
+            text-align: center !important;
+            white-space: nowrap !important;
+            min-width: 70px !important;
+        }
+
+        /* DataTables UI Component Styling */
+        /* Full width for DataTables wrapper */
+        .dataTables_wrapper {
+            width: 100% !important;
+        }
+
+        /* Pagination button styling */
+        .dataTables_wrapper .dataTables_paginate .paginate_button {
+            padding: 0.375rem 0.75rem;
+            margin: 0 2px;
+            border-radius: 0.375rem;
+        }
+
+        /* Info text styling */
+        .dataTables_wrapper .dataTables_info {
+            padding-top: 0.75rem;
+            color: #6c757d;
+        }
+
+        /* Search filter styling */
+        .dataTables_wrapper .dataTables_filter {
+            margin-bottom: 1rem;
+        }
+
+        /* Search input field styling */
+        .dataTables_wrapper .dataTables_filter input {
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            padding: 0.375rem 0.75rem;
+            width: 300px !important;
+        }
+
+        /* Table Container Responsiveness */
+        /* Enable horizontal scrolling on smaller screens */
+        .table-responsive {
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+        }
+
+        /* Badge Styling for Category Indicators */
+        /* Success badge for detected categories */
+        .badge.bg-success {
+            background-color: #198754 !important;
+            font-size: 12px !important;
+            padding: 4px 8px !important;
+        }
+
+        /* Secondary badge for non-detected categories */
+        .badge.bg-secondary {
+            background-color: #6c757d !important;
+            font-size: 12px !important;
+            padding: 4px 8px !important;
+        }
+
+        /* Muted text for empty category cells */
+        .text-muted {
+            font-size: 12px !important;
+            color: #6c757d !important;
+        }
+
+        /* Responsive Design Breakpoints */
+        /* Large screens (1200px and down) - Reduce category column font size */
+        @media (max-width: 1200px) {
+            #data-table thead th:nth-child(n+3) {
+                font-size: 10px !important;
+                padding: 6px 2px !important;
+                min-width: 60px !important;
+            }
+        }
+
+        /* Medium screens (992px and down) - Further optimize for tablets */
+        @media (max-width: 992px) {
+            #data-table tbody td:first-child {
+                max-width: 250px !important;
+                min-width: 200px !important;
+                font-size: 12px !important;
+            }
+
+            #data-table thead th:nth-child(n+3) {
+                font-size: 9px !important;
+                padding: 4px 2px !important;
+                min-width: 50px !important;
+            }
+        }
+
+        /* Small screens (768px and down) - Mobile optimization */
+        @media (max-width: 768px) {
+            #data-table tbody td:first-child {
+                max-width: 200px !important;
+                min-width: 150px !important;
+                font-size: 11px !important;
+            }
+
+            #data-table thead th {
+                font-size: 11px !important;
+                padding: 8px 4px !important;
+            }
+
+            #data-table thead th:nth-child(n+3) {
+                font-size: 8px !important;
+                padding: 4px 1px !important;
+                min-width: 45px !important;
+            }
+
+            #data-table tbody td {
+                padding: 6px 4px !important;
+                font-size: 11px !important;
+            }
+        }
+    </style>
 </head>
 
 <body>
-
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
-        <div class="container">
+    <!-- Navigation Bar -->
+    <!-- Fixed navigation with brand and external links -->
+    <nav class="navbar navbar-dark bg-dark">
+        <div class="container-fluid">
+            <!-- Main brand link returning to homepage -->
             <a class="navbar-brand" href="/">Disaster Response</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item"><a class="nav-link" href="https://www.udacity.com/">Made with Udacity</a></li>
-                    <li class="nav-item"><a class="nav-link" href="https://github.com/">Contact</a></li>
-                </ul>
-            </div>
+            <!-- External navigation links -->
+            <span class="navbar-text">
+                <a href="https://www.udacity.com/" class="text-decoration-none text-white me-3">Made with Udacity</a>
+                <a href="https://github.com/" class="text-decoration-none text-white">Contact</a>
+            </span>
         </div>
     </nav>
 
-    <div class="container mt-5 pt-5">
-        <div class="jumbotron text-center mb-5">
-            <h1 class="display-4">Disaster Response Project</h1>
+    <!-- Header Section -->
+    <!-- Prominent header with project title and description -->
+    <div class="header text-center">
+        <div class="container">
+            <h1 class="display-4 fw-bold">Disaster Response Project</h1>
             <p class="lead">Analyzing disaster-related messages for better emergency response</p>
-            <hr class="my-4">
-            <form action="/go" method="get" class="row g-3 justify-content-center">
-                <div class="col-md-6">
-                    <input type="text" class="form-control" name="query" placeholder="Enter a message to classify"
-                        required>
-                </div>
-                <div class="col-auto">
-                    <button type="submit" class="btn btn-success btn-lg">Classify Message</button>
-                </div>
-            </form>
-        </div>
-
-        {% block message %}{% endblock %}
-
-        <div class="mt-5">
-            {% block content %}
-            <h2 class="text-center mb-4">Visual Insights from Training Dataset</h2>
-            <div class="row">
-                <div class="col-12">
-                    {% for id in ids | safe | fromjson %}
-                    <div id="{{ id }}" class="my-5 shadow-sm p-3 bg-light rounded"></div>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endblock %}
         </div>
     </div>
 
-    <script type="text/javascript">
-        const graphs = {{ graphJSON | safe }};
-        const ids = {{ ids | safe }};
-        ids.forEach((id, index) => {
-            Plotly.newPlot(id, graphs[index].data, graphs[index].layout);
+    <div class="container-fluid px-4">
+        <!-- Flash Messages Section -->
+        <!-- Display Flask session messages (success, error, info) -->
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <div class="row mt-3">
+            <div class="col-12">
+                {% for message in messages %}
+                <!-- Bootstrap alert with auto-dismiss functionality -->
+                <div class="alert alert-info alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        <!-- Dynamic Content Block -->
+        <!-- Jinja2 block for page-specific content inheritance -->
+        {% block message %}{% endblock %}
+
+        <!-- Message Classification Form -->
+        <!-- Interactive form for real-time message classification -->
+        <div class="classify-container">
+            <div class="text-center text-white">
+                <h3 class="mb-4">Classify Emergency Message</h3>
+                <!-- GET form submitting to classification endpoint -->
+                <form method="GET" action="/go" class="d-flex justify-content-center gap-3">
+                    <!-- Message input field with placeholder text -->
+                    <input type="text" name="query" id="message-input" class="form-control" style="max-width: 500px;"
+                        placeholder="Enter a message to classify" value="" required>
+                    <!-- Submit button with custom styling -->
+                    <button type="submit" class="btn btn-classify px-4">Classify Message</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Data Visualizations Section -->
+        <!-- Conditional display of Plotly charts when data is available -->
+        {% if graphJSON is defined or graphs %}
+        <div class="row">
+            <div class="col-12">
+                <h2 class="text-center mb-4">Data Insights & Visualizations</h2>
+            </div>
+        </div>
+
+        <!-- Dynamic Visualization Containers -->
+        <!-- Generate responsive chart containers based on provided data -->
+        <div class="row">
+            {% if ids %}
+            {% for id in ids %}
+            <div class="col-lg-6 col-md-12 mb-4">
+                <!-- Individual chart container with shadow styling -->
+                <div class="visualization-container">
+                    <!-- Optional chart title from backend -->
+                    {% if graph_titles and graph_titles[loop.index0] %}
+                    <h4 class="text-center mb-3">{{ graph_titles[loop.index0] }}</h4>
+                    {% endif %}
+                    <!-- Plotly chart will be rendered in this div -->
+                    <div id="{{ id }}"></div>
+                </div>
+            </div>
+            {% endfor %}
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Messages Table Section -->
+        <!-- Enhanced data table with search, filtering, and pagination -->
+        <div class="row">
+            <div class="col-12">
+                <h2 class="text-center mb-4">Recent Messages and Categories</h2>
+
+                <!-- Table Controls Section -->
+                <!-- Row limit and search functionality -->
+                <div class="search-container">
+                    <div class="row align-items-center">
+                        <!-- Row Limit Control -->
+                        <div class="col-md-6">
+                            <label for="limit" class="form-label fw-bold">Messages to display:</label>
+                            <!-- Form to change number of displayed rows -->
+                            <form method="GET" action="/" class="d-flex gap-2">
+                                <!-- Preserve search query when changing row limit -->
+                                {% if search_query %}
+                                <input type="hidden" name="search" value="{{ search_query }}">
+                                {% endif %}
+                                <!-- Dropdown for row limit selection -->
+                                <select name="limit" id="limit" class="form-select w-auto"
+                                    onchange="this.form.submit()">
+                                    <option value="25" {% if row_limit==25 %}selected{% endif %}>25</option>
+                                    <option value="50" {% if row_limit==50 %}selected{% endif %}>50</option>
+                                    <option value="100" {% if row_limit==100 %}selected{% endif %}>100</option>
+                                    <option value="500" {% if row_limit==500 %}selected{% endif %}>500</option>
+                                    <option value="1000" {% if row_limit==1000 %}selected{% endif %}>1000</option>
+                                    <option value="-1" {% if row_limit==-1 or row_limit==0 %}selected{% endif %}>All
+                                    </option>
+                                </select>
+                                <button type="submit" class="btn btn-primary">Apply</button>
+                            </form>
+                        </div>
+                        <!-- Search Control -->
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Search messages:</label>
+                            <!-- Form for message content search -->
+                            <form method="GET" action="/" class="d-flex gap-2">
+                                <!-- Search input with current query preserved -->
+                                <input type="text" name="search" class="form-control" placeholder="Search messages..."
+                                    value="{{ search_query or '' }}">
+                                <!-- Preserve row limit when searching -->
+                                <input type="hidden" name="limit" value="{{ row_limit }}">
+                                <button type="submit" class="btn btn-primary">Search</button>
+                                <!-- Clear search button when search is active -->
+                                {% if search_query %}
+                                <a href="/" class="btn btn-outline-secondary">Clear</a>
+                                {% endif %}
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Data Table Display -->
+                {% if table_data %}
+                <div class="table-container">
+                    <!-- Responsive table wrapper for horizontal scrolling -->
+                    <div class="table-responsive">
+                        <!-- Main data table with Bootstrap and DataTables classes -->
+                        <table id="data-table" class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <!-- Dynamic column headers from backend -->
+                                    {% for column in columns %}
+                                    <th
+                                        class="{% if column == 'Message' %}message-col{% else %}category-col{% endif %}">
+                                        {{ column }}
+                                    </th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Data rows with message and category information -->
+                                {% for row in table_data %}
+                                <tr>
+                                    <!-- Message content cell -->
+                                    <td class="message-col">{{ row.message }}</td>
+                                    <!-- Genre badge cell -->
+                                    <td class="category-col"><span class="badge bg-secondary">{{ row.genre }}</span>
+                                    </td>
+                                    <!-- Category classification cells -->
+                                    {% for column in columns[2:] %}
+                                    <!-- Convert column name to match data structure -->
+                                    {% set col_key = column.lower().replace(' ', '_') %}
+                                    {% set value = row.get(col_key, 0) %}
+                                    <td class="category-col">
+                                        <!-- Display checkmark for detected categories, dash for undetected -->
+                                        {% if value == 1 %}
+                                        <span class="badge bg-success">✓</span>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% else %}
+                <!-- No Data Found Message -->
+                <div class="alert alert-warning text-center">
+                    <h5>No messages found</h5>
+                    {% if search_query %}
+                    <!-- Search-specific no results message -->
+                    <p>No messages match your search term "{{ search_query }}". <a href="/">Clear search</a> to see all
+                        messages.</p>
+                    {% else %}
+                    <!-- General no data message -->
+                    <p>No messages available in the database.</p>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Dependencies -->
+
+    <!-- jQuery - Required for DataTables functionality -->
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+
+    <!-- Bootstrap JavaScript for interactive components -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- DataTables Core JavaScript -->
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+
+    <!-- DataTables Bootstrap Integration -->
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+
+    <!-- DataTables Initialization Script -->
+    <!--
+    Configure DataTables with disaster response specific settings:
+    - 50 rows per page for better performance with large datasets
+    - Disable length menu to use custom controls
+    - Enable search across all columns
+    - Custom language labels for disaster context
+    -->
+    <script>
+        $(document).ready(function () {
+            $('#data-table').DataTable({
+                pageLength: 50,                    // Display 50 messages per page
+                lengthChange: false,               // Disable built-in length menu (using custom)
+                autoWidth: false,                  // Disable auto column width calculation
+                responsive: false,                 // Handle responsiveness with CSS
+                searching: true,                   // Enable search functionality
+                language: {
+                    search: "Search all columns:",                              // Custom search label
+                    info: "Showing _START_ to _END_ of _TOTAL_ messages",      // Custom info text
+                    infoEmpty: "Showing 0 to 0 of 0 messages",                // Empty state text
+                    infoFiltered: "(filtered from _MAX_ total messages)"       // Filter state text
+                },
+            });
         });
     </script>
 
+    <!-- Dynamic Plotly Chart Rendering -->
+    <!--
+    Support for both legacy (graphJSON) and modern (graphs) chart data formats.
+    Renders all provided charts with error handling for failed visualizations.
+    -->
+    <script type="text/javascript">
+        // Legacy format support (graphJSON with ids)
+        {% if graphJSON is defined %}
+        const graphs = {{ graphJSON | safe }};
+        const ids = {{ ids | safe }};
+
+        // Iterate through each chart and render with Plotly
+        ids.forEach((id, index) => {
+            try {
+                // Create responsive chart with data and layout from backend
+                Plotly.newPlot(id, graphs[index].data, graphs[index].layout, { responsive: true });
+            } catch (e) {
+                // Log rendering errors for debugging
+                console.error(`Plot error for ID: ${id}`, e);
+            }
+        });
+
+        // Modern format support (direct graphs array)
+        {% elif graphs %}
+        {% for i in range(graphs | length) %}
+        try {
+            // Render chart with simplified data structure
+            Plotly.newPlot('{{ ids[i] }}', {{ graphs[i]| safe }}, { responsive: true });
+        } catch (e) {
+            // Log rendering errors with container ID
+            console.error('Plot error for {{ ids[i] }}', e);
+        }
+        {% endfor %}
+        {% endif %}
+    </script>
 </body>
 
 </html>
