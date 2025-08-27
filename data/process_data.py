@@ -401,12 +401,9 @@ def main():
         
     else:
         # Provide usage instructions for incorrect argument count
-        logging.error(
-            "Please provide the filepaths of messages and categories as the first "
-            "and second arguments, and the database filepath as the third.\n"
-            "Example: python process_data.py data/disaster_messages.csv "
-            "data/disaster_categories.csv data/DisasterResponse.db"
-        )
+        logging.error("""Please provide the filepaths of messages and categories as the first and second arguments, and the database filepath as the third.
+
+Example: python process_data.py data/disaster_messages.csv data/disaster_categories.csv data/DisasterResponse.db""")
         sys.exit(1)
 
 
