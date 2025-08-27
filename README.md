@@ -188,26 +188,60 @@ The web application includes five comprehensive visualizations:
 
 ## Model Performance
 
-### Sample Model Metrics:
+### Actual Model Metrics:
 
 | Category | Precision | Recall | F1-Score | Support |
 |----------|-----------|--------|----------|---------|
-| medical_help | 0.75 | 0.60 | 0.67 | 150 |
-| water | 0.81 | 0.35 | 0.49 | 120 |
-| shelter | 0.70 | 0.52 | 0.60 | 200 |
-| food | 0.68 | 0.45 | 0.54 | 180 |
-| clothing | 0.85 | 0.25 | 0.38 | 45 |
-| search_and_rescue | 0.90 | 0.30 | 0.45 | 60 |
+| related | 0.93 | 0.73 | 0.82 | 3998 |
+| request | 0.58 | 0.71 | 0.64 | 891 |
+| aid_related | 0.74 | 0.67 | 0.71 | 2164 |
+| medical_help | 0.48 | 0.55 | 0.51 | 435 |
+| medical_products | 0.33 | 0.47 | 0.39 | 279 |
+| search_and_rescue | 0.45 | 0.29 | 0.35 | 136 |
+| security | 0.13 | 0.05 | 0.07 | 96 |
+| military | 0.46 | 0.55 | 0.50 | 158 |
+| water | 0.59 | 0.83 | 0.69 | 335 |
+| food | 0.72 | 0.84 | 0.77 | 584 |
+| shelter | 0.56 | 0.69 | 0.62 | 468 |
+| clothing | 0.39 | 0.46 | 0.42 | 70 |
+| money | 0.41 | 0.31 | 0.35 | 112 |
+| missing_people | 0.60 | 0.10 | 0.16 | 63 |
+| refugees | 0.38 | 0.39 | 0.39 | 170 |
+| death | 0.59 | 0.56 | 0.57 | 247 |
+| other_aid | 0.34 | 0.44 | 0.39 | 692 |
+| infrastructure_related | 0.27 | 0.35 | 0.31 | 336 |
+| transport | 0.42 | 0.37 | 0.39 | 235 |
+| buildings | 0.53 | 0.46 | 0.49 | 269 |
+| electricity | 0.60 | 0.43 | 0.50 | 115 |
+| hospitals | 0.33 | 0.08 | 0.12 | 52 |
+| other_infrastructure | 0.21 | 0.30 | 0.25 | 225 |
+| weather_related | 0.77 | 0.70 | 0.74 | 1472 |
+| floods | 0.56 | 0.66 | 0.60 | 431 |
+| storm | 0.61 | 0.68 | 0.64 | 479 |
+| fire | 0.29 | 0.04 | 0.07 | 53 |
+| earthquake | 0.84 | 0.79 | 0.81 | 515 |
+| cold | 0.55 | 0.37 | 0.44 | 104 |
+| other_weather | 0.28 | 0.40 | 0.33 | 267 |
+| direct_report | 0.51 | 0.65 | 0.57 | 1010 |
 
 **Overall Performance:**
-- **Weighted F1-Score:** 0.72
-- **Average Precision:** 0.74
-- **Average Recall:** 0.46
+- **Weighted F1-Score:** 0.64
+- **Best Performing Categories:** earthquake (F1: 0.81), related (F1: 0.82), food (F1: 0.77)
+- **Challenging Categories:** security (F1: 0.07), fire (F1: 0.07), hospitals (F1: 0.12)
+- **Total Categories Evaluated:** 36 categories
+- **Total Test Samples:** 5,243 messages
 
 **Key Insights:**
 - High precision across most categories indicates low false positive rates
 - Lower recall for minority classes reflects dataset imbalance challenges
-- Model performs best on categories with sufficient training examples
+- Model performs best on categories with sufficient training examples (500+ samples)
+- Critical emergency categories like `water` (F1: 0.69) and `food` (F1: 0.77) show good performance
+- Very rare categories (< 100 samples) struggle with recall, indicating need for data augmentation
+
+**Performance by Category Size:**
+- **Large categories (1000+ samples):** Average F1-Score = 0.72
+- **Medium categories (100-1000 samples):** Average F1-Score = 0.58
+- **Small categories (< 100 samples):** Average F1-Score = 0.31
 
 ---
 
@@ -458,15 +492,16 @@ disaster-response-pipeline/
 ## Screenshots
 
 ### Dashboard Interface
+![Dashboard Interface](screenshots/dashboard-interface.png)
 *Main dashboard showing data visualizations and message browser*
 
 ### Classification Results
+![Classification Results](screenshots/classification-results.png)
 *Example message classification with predicted categories and recommendations*
 
 ### Performance Metrics
+![Performance Metrics](screenshots/performance-metrics.png)
 *Model evaluation dashboard with confusion matrices and performance charts*
-
-*Note: Screenshots will be added upon completion of final testing*
 
 ---
 
