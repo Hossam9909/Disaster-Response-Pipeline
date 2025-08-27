@@ -119,13 +119,7 @@ class Feedback(db.Model):
 
 
 RECOMMENDATIONS = {
-    """
-    Emergency response recommendations mapped to message categories.
     
-    This dictionary provides actionable recommendations and relevant organization
-    links for different types of disaster-related needs identified by the ML model.
-    Each category includes descriptive text and links to relevant aid organizations.
-    """
     
     'water': {
         'text': 'Contact water assistance organizations',
@@ -327,7 +321,7 @@ def analyze_word_in_dataset(word, df):
         dict or None: Dictionary containing detailed analysis results, or None if 
                      dataset is empty or missing required columns.
                      
-    Returns dictionary contains:
+    The returned dictionary contains:
         - word (str): The analyzed word
         - total_occurrences (int): Total times word appears in all messages
         - message_count (int): Number of messages containing the word
