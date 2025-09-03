@@ -49,3 +49,5 @@ app/instance/
 *.tmp
 *.temp
 EOFtest/
+models/*.pkl
+test/
