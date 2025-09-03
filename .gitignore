@@ -1,3 +1,51 @@
-*.csv
-*.pkl
-*.dp
+# macOS system files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.pyc
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+.env
+
+# Flask
+instance/
+app/instance/
+.flaskenv
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Data files (optional - uncomment if your data files are too large)
+# *.csv
+# *.db
+# *.pkl
+
+# Logs
+*.log
+
+# OS generated files
+*.tmp
+*.temp
+EOFtest/

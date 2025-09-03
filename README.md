@@ -500,7 +500,7 @@ disaster-response-pipeline/
 *Example message classification with predicted categories and recommendations*
 
 ### Performance Metrics
-![Performance Metrics](screenshots/performance-metrics.png)
+![Performance Metrics](screenshots/performance-metrics)
 *Model evaluation dashboard with confusion matrices and performance charts*
 
 ---
