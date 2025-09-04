@@ -21,21 +21,42 @@ import logging
 import os
 import re
 import string
-import multiprocessing
-import pandas as pd
 import sqlite3
+import pandas as pd
 from sqlalchemy import create_engine
-from joblib import Parallel, delayed
-
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
 
-# Configure NLTK resources - download required datasets
+# Ensure required NLTK data is available
 import nltk
-nltk.download('punkt')      # For tokenization
-nltk.download('wordnet')    # For lemmatization
-nltk.download('stopwords')  # For stop word removal
+
+
+def ensure_nltk_data():
+    """Download NLTK data if not already present."""
+    import os
+    nltk_data_dir = os.path.expanduser('~/nltk_data')
+
+    required_data = [
+        ('tokenizers/punkt', 'punkt'),
+        ('corpora/stopwords', 'stopwords'),
+        ('corpora/wordnet', 'wordnet'),
+        ('taggers/averaged_perceptron_tagger', 'averaged_perceptron_tagger')
+    ]
+
+    for data_path, download_name in required_data:
+        try:
+            nltk.data.find(data_path)
+        except LookupError:
+            try:
+                nltk.download(download_name, quiet=True)
+            except Exception as e:
+                print(
+                    f"Warning: Could not download NLTK data '{download_name}': {e}")
+
+
+# Call once at module level
+ensure_nltk_data()
 
 
 def configure_logging():

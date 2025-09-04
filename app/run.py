@@ -10,6 +10,7 @@ Author: Disaster Response Team
 Version: 1.0
 """
 
+from nltk.corpus import stopwords
 import os
 import re
 import json
@@ -31,21 +32,35 @@ from functools import lru_cache
 from collections import Counter
 import nltk
 
-# Download required NLTK data with error handling
-try:
-    nltk.data.find('tokenizers/punkt')
-except LookupError:
-    nltk.download('punkt', quiet=True)
-try:
-    nltk.data.find('corpora/stopwords')
-except LookupError:
-    nltk.download('stopwords', quiet=True)
-try:
-    nltk.data.find('corpora/wordnet')
-except LookupError:
-    nltk.download('wordnet', quiet=True)
+# Ensure required NLTK data is available
 
-from nltk.corpus import stopwords
+
+def ensure_nltk_data():
+    """Download NLTK data if not already present."""
+    import os
+    nltk_data_dir = os.path.expanduser('~/nltk_data')
+
+    required_data = [
+        ('tokenizers/punkt', 'punkt'),
+        ('corpora/stopwords', 'stopwords'),
+        ('corpora/wordnet', 'wordnet'),
+        ('taggers/averaged_perceptron_tagger', 'averaged_perceptron_tagger')
+    ]
+
+    for data_path, download_name in required_data:
+        try:
+            nltk.data.find(data_path)
+        except LookupError:
+            try:
+                nltk.download(download_name, quiet=True)
+            except Exception as e:
+                print(
+                    f"Warning: Could not download NLTK data '{download_name}': {e}")
+
+
+# Call
+ensure_nltk_data()
+
 
 # ================== TOKENIZATION FUNCTION ==================
 # This function needs to be defined before loading the model
@@ -55,21 +70,28 @@ from nltk.corpus import stopwords
 def tokenize(text):
     """
     Tokenize and preprocess text for machine learning model input.
-    
+
     This function performs comprehensive text preprocessing including normalization,
     tokenization, lemmatization, and stop word removal. The preprocessing steps
     must match exactly what was used during model training to ensure consistency.
-    
+
     Args:
         text (str): Raw input text to be tokenized and processed.
-        
+
     Returns:
         list: List of processed tokens (strings) ready for model input.
-        
+
     Example:
         >>> tokenize("Help! We need water and medical supplies!")
         ['help', 'need', 'water', 'medical', 'supply']
     """
+    # Handle None/NaN values
+    if pd.isna(text) or text is None:
+        return []
+
+    # Convert to string to handle numeric inputs
+    text = str(text)
+
     # Normalize text by removing non-alphanumeric characters and converting to lowercase
     text = re.sub(r"[^a-zA-Z0-9]", " ", text.lower())
 
@@ -82,7 +104,7 @@ def tokenize(text):
     # Remove stop words and lemmatize remaining tokens
     stop_words = set(stopwords.words('english'))
     tokens = [lemmatizer.lemmatize(token).lower().strip()
-              for token in tokens if token not in stop_words]
+              for token in tokens if token not in stop_words and len(token) > 2]
 
     return tokens
 
@@ -90,7 +112,8 @@ def tokenize(text):
 # Initialize Flask application and database configuration
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///feedback.db'
-app.secret_key = os.urandom(24)  # Generate random secret key for session management
+# Generate random secret key for session management
+app.secret_key = os.urandom(24)
 db = SQLAlchemy(app)
 
 # ================== Feedback Model ==================
@@ -99,17 +122,17 @@ db = SQLAlchemy(app)
 class Feedback(db.Model):
     """
     SQLAlchemy model for storing user feedback on message classifications.
-    
+
     This model tracks user feedback on the accuracy of machine learning predictions
     to enable continuous improvement of the classification system.
-    
+
     Attributes:
         id (int): Primary key for the feedback record.
         message (str): The original message that was classified (max 500 characters).
         prediction (str): The model's prediction result (max 500 characters).
         is_correct (bool): Whether the user marked the prediction as accurate.
     """
-    
+
     id = db.Column(db.Integer, primary_key=True)
     message = db.Column(db.String(500))
     prediction = db.Column(db.String(500))
@@ -119,8 +142,8 @@ class Feedback(db.Model):
 
 
 RECOMMENDATIONS = {
-    
-    
+
+
     'water': {
         'text': 'Contact water assistance organizations',
         'links': [
@@ -200,14 +223,14 @@ except Exception as e:
 def load_model():
     """
     Load the trained machine learning model with comprehensive error handling.
-    
+
     This function attempts to load a pre-trained classifier model from the models
     directory. It includes multiple fallback loading strategies to handle different
     types of serialization issues that may occur.
-    
+
     Returns:
         object or None: The loaded machine learning model if successful, None if failed.
-        
+
     Note:
         The model file should be located at '../models/classifier.pkl' relative to
         this script. The function uses LRU cache to avoid reloading the model
@@ -216,33 +239,18 @@ def load_model():
     model_path = os.path.join(os.path.dirname(
         __file__), '..', 'models', 'classifier.pkl')
 
-    try:
-        # Primary loading method using joblib
-        model = joblib.load(os.path.abspath(model_path))
-        print("✅ Model loaded successfully")
-        return model
-    except FileNotFoundError:
-        print(f"❌ Model file not found at: {os.path.abspath(model_path)}")
-        print("Please ensure the model file exists and the path is correct.")
-        return None
-    except AttributeError as e:
-        print(f"❌ AttributeError when loading model: {e}")
-        print(
-            "This usually means the model was saved with functions from a different module.")
-        print("Trying alternative loading method...")
-
+    if os.path.exists(model_path):
         try:
-            # Alternative loading method using pickle directly
-            import pickle
-            with open(os.path.abspath(model_path), 'rb') as f:
-                model = pickle.load(f)
-            print("✅ Model loaded with alternative method")
+            model = joblib.load(model_path)
+            print(
+                f"Model loaded successfully from: {os.path.abspath(model_path)}")
             return model
-        except Exception as e2:
-            print(f"❌ Alternative loading also failed: {e2}")
+        except Exception as e:
+            print(f"Error loading model: {e}")
             return None
-    except Exception as e:
-        print(f"❌ Unexpected error loading model: {e}")
+    else:
+        print(f"Model file not found at: {os.path.abspath(model_path)}")
+        print("Make sure classifier.pkl is in the models/ directory")
         return None
 
 
@@ -255,14 +263,14 @@ model = load_model()
 def truncate_text(text, max_length=100):
     """
     Truncate text to specified length with ellipsis for display purposes.
-    
+
     Args:
         text (str): The text to be truncated.
         max_length (int, optional): Maximum length of the returned text. Defaults to 100.
-        
+
     Returns:
         str: Truncated text with ellipsis if truncation occurred, original text otherwise.
-        
+
     Example:
         >>> truncate_text("This is a very long message that needs truncation", 20)
         'This is a very long ...'
@@ -275,18 +283,18 @@ def truncate_text(text, max_length=100):
 def search_messages(df, query, limit=50):
     """
     Search for messages containing a specific query string.
-    
+
     Performs case-insensitive substring search within the message column
     of the provided DataFrame and returns matching results.
-    
+
     Args:
         df (pd.DataFrame): DataFrame containing messages to search.
         query (str): Search term to look for in messages.
         limit (int, optional): Maximum number of results to return. Defaults to 50.
-        
+
     Returns:
         pd.DataFrame: Filtered DataFrame containing messages that match the query.
-        
+
     Note:
         If query is empty or whitespace-only, returns the first 'limit' rows.
         Search is performed on the 'message' column only.
@@ -308,19 +316,19 @@ def search_messages(df, query, limit=50):
 def analyze_word_in_dataset(word, df):
     """
     Perform comprehensive analysis of a specific word's usage patterns in the dataset.
-    
+
     This function analyzes how a specific word appears across the disaster response
     dataset, including frequency analysis, category associations, genre distribution,
     and co-occurring word patterns.
-    
+
     Args:
         word (str): The word to analyze within the dataset.
         df (pd.DataFrame): The disaster response dataset to analyze.
-        
+
     Returns:
         dict or None: Dictionary containing detailed analysis results, or None if 
                      dataset is empty or missing required columns.
-                     
+
     The returned dictionary contains:
         - word (str): The analyzed word
         - total_occurrences (int): Total times word appears in all messages
@@ -416,17 +424,17 @@ def analyze_word_in_dataset(word, df):
 def create_word_visualizations(word_analysis):
     """
     Create Plotly visualizations for word analysis results.
-    
+
     Generates interactive charts to visualize patterns and distributions
     related to a specific word's usage in the disaster response dataset.
-    
+
     Args:
         word_analysis (dict): Results from analyze_word_in_dataset function.
-        
+
     Returns:
         list: List of JSON-encoded Plotly figure objects ready for web rendering.
               Returns empty list if analysis data is invalid or visualization fails.
-              
+
     Generated visualizations include:
         1. Category distribution bar chart
         2. Genre distribution pie chart  
@@ -531,20 +539,20 @@ def create_word_visualizations(word_analysis):
 def create_advanced_word_visualizations(word, df, word_messages):
     """
     Create advanced statistical visualizations for comprehensive word analysis.
-    
+
     Generates sophisticated analytical charts that provide deeper insights into
     how a specific word relates to various aspects of the disaster response dataset,
     including category relationships, message complexity, and comparative analysis.
-    
+
     Args:
         word (str): The word being analyzed.
         df (pd.DataFrame): Complete disaster response dataset.
         word_messages (pd.DataFrame): Subset of messages containing the target word.
-        
+
     Returns:
         list: List of JSON-encoded Plotly figure objects for advanced visualizations.
               Returns empty list if visualization creation fails.
-              
+
     Generated advanced visualizations include:
         1. Category comparison (word vs overall dataset)
         2. Multi-category message analysis
@@ -724,19 +732,19 @@ def create_advanced_word_visualizations(word, df, word_messages):
 def get_word_insights(word, df, word_messages):
     """
     Generate textual insights about word usage patterns and characteristics.
-    
+
     Analyzes the relationship between a specific word and various dataset characteristics
     to provide human-readable insights about usage patterns, associations, and anomalies.
-    
+
     Args:
         word (str): The word being analyzed.
         df (pd.DataFrame): Complete disaster response dataset for comparison.
         word_messages (pd.DataFrame): Messages containing the target word.
-        
+
     Returns:
         list: List of insight strings describing notable patterns and characteristics.
               Each insight is a complete sentence describing a significant finding.
-              
+
     Generated insights may include:
         - Primary category associations
         - Genre preferences
@@ -780,18 +788,19 @@ def get_word_insights(word, df, word_messages):
 
 # ================== Visualizations ==================
 
+
 @lru_cache(maxsize=1)
 def create_visualizations():
     """Create all visualizations for the dashboard.
-    
+
     This function generates various data visualizations including category distribution,
     genre distribution, correlation heatmaps, message length distribution, and word frequency.
     Uses LRU cache to avoid regenerating visualizations on repeated calls.
-    
+
     Returns:
         list: A list of JSON-encoded Plotly figures ready for rendering in templates.
               Returns empty list if no data is available or if errors occur.
-    
+
     Note:
         Assumes global 'df' DataFrame is available with expected columns:
         - Numeric columns (indices 4+) for categories
@@ -809,28 +818,30 @@ def create_visualizations():
         # 1. Category Distribution Bar Chart
         # Extract numeric columns (categories) starting from index 4
         category_df = df.iloc[:, 4:].select_dtypes(include=[np.number])
-        
+
         if not category_df.empty:
             # Calculate sum for each category and sort in descending order
             category_counts = category_df.sum().sort_values(ascending=False)
 
             # Create interactive bar chart with color mapping
             fig1 = px.bar(
-                x=category_counts.index.str.replace('_', ' ').str.title(),  # Format category names
+                x=category_counts.index.str.replace(
+                    '_', ' ').str.title(),  # Format category names
                 y=category_counts.values,
                 labels={'x': 'Category', 'y': 'Count'},
                 title='Message Category Distribution',
                 color=category_counts.values,
                 color_continuous_scale='viridis'
             )
-            fig1.update_layout(xaxis_tickangle=-45, height=500)  # Rotate x-axis labels for readability
+            # Rotate x-axis labels for readability
+            fig1.update_layout(xaxis_tickangle=-45, height=500)
             visuals.append(json.dumps(fig1, cls=PlotlyJSONEncoder))
 
         # 2. Genre Distribution Pie Chart
         if 'genre' in df.columns:
             # Count occurrences of each genre
             genre_counts = df['genre'].value_counts()
-            
+
             # Create pie chart for genre distribution
             fig2 = px.pie(
                 values=genre_counts.values,
@@ -843,7 +854,8 @@ def create_visualizations():
         if not category_df.empty and len(category_df.columns) > 1:
             # Select top 15 categories to avoid cluttered heatmap
             top_categories = category_counts.head(15).index
-            corr_matrix = df[top_categories].corr()  # Calculate correlation matrix
+            # Calculate correlation matrix
+            corr_matrix = df[top_categories].corr()
 
             # Create correlation heatmap with diverging color scale
             fig3 = px.imshow(
@@ -859,7 +871,7 @@ def create_visualizations():
         if 'message' in df.columns:
             # Create copy to avoid modifying original DataFrame
             df_copy = df.copy()
-            
+
             # Calculate message length in characters, handling NaN values
             df_copy['msg_len'] = df_copy['message'].apply(
                 lambda x: len(str(x)) if pd.notna(x) else 0)
@@ -885,18 +897,18 @@ def create_visualizations():
             # Combine all messages into single text and convert to lowercase
             all_words = ' '.join(df['message'].dropna().astype(str)).lower()
             tokens = word_tokenize(all_words)  # Tokenize text into words
-            
+
             # Filter words: alphabetic, length > 2, not in stop words
             words = [word for word in tokens if word.isalpha() and len(word) > 2
                      and word not in stop_words]
-            
+
             # Get 15 most common words
             common_words = Counter(words).most_common(15)
 
             if common_words:
                 # Create DataFrame for plotting
                 word_df = pd.DataFrame(common_words, columns=['Word', 'Count'])
-                
+
                 # Create horizontal bar chart for word frequency
                 fig5 = px.bar(
                     word_df, x='Count', y='Word', orientation='h',
@@ -924,19 +936,19 @@ def create_visualizations():
 @app.route('/')
 def index():
     """Main page with visualizations and message table.
-    
+
     Renders the main dashboard page containing:
     - Interactive data visualizations (charts, graphs, heatmaps)
     - Searchable and filterable message table
     - Category distribution analysis
-    
+
     Query Parameters:
         limit (int, optional): Maximum number of messages to display. Defaults to 50.
         search (str, optional): Search query to filter messages. Defaults to empty string.
-    
+
     Returns:
         str: Rendered HTML template with visualizations and table data.
-    
+
     Template Variables:
         table_data (list): List of dictionaries containing message and category data
         columns (list): Column headers for the data table
@@ -1022,7 +1034,8 @@ def index():
             'Message Length Distribution',
             'Top Words Frequency'
         ]
-        ids = [f'graph{i}' for i in range(len(graphs))]  # Generate unique IDs for HTML elements
+        # Generate unique IDs for HTML elements
+        ids = [f'graph{i}' for i in range(len(graphs))]
     except Exception as e:
         logging.exception("Error creating visualizations")
         graphs = []
@@ -1045,18 +1058,18 @@ def index():
 @app.route('/simple')
 def simple_view():
     """Simple view without complex visualizations for debugging.
-    
+
     Provides a simplified interface for viewing and searching messages without
     the overhead of complex visualizations. Useful for debugging and performance
     testing when full dashboard functionality is not needed.
-    
+
     Query Parameters:
         limit (int, optional): Maximum number of messages to display. Defaults to 50.
         search (str, optional): Search query to filter messages. Defaults to empty string.
-    
+
     Returns:
         str: Rendered HTML page with message table and basic styling.
-        
+
     Features:
         - Clean, responsive table layout
         - Search functionality
@@ -1443,22 +1456,22 @@ def simple_view():
 @app.route('/go', methods=['GET', 'POST'])
 def go():
     """Handle message classification and feedback with word analysis.
-    
+
     Provides the main interface for classifying disaster messages using ML model
     and analyzing word usage patterns in the dataset. Handles both GET requests
     for displaying the form and POST requests for processing feedback.
-    
+
     POST Parameters (for feedback):
         feedback (str): User feedback on prediction accuracy ('accurate' or other)
         message (str): Original message that was classified
         prediction (str): The prediction result that user is providing feedback on
-    
+
     GET Parameters (for classification):
         query (str): The message text to classify and analyze
-    
+
     Returns:
         str: Rendered HTML template with classification results and word analysis.
-        
+
     Template Variables:
         query (str): The input message
         classification_result (dict): Category predictions from ML model
@@ -1468,7 +1481,7 @@ def go():
         word_graph_titles (list): Titles for word analysis graphs
         word_ids (list): HTML element IDs for word graphs
         error (str): Error message if classification fails
-        
+
     Features:
         - ML-based message classification
         - Emergency response recommendations
@@ -1537,7 +1550,8 @@ def go():
             })
 
         # Perform word analysis on the input query
-        word_analysis = analyze_word_in_dataset(query, df)  # Function should be defined elsewhere
+        # Function should be defined elsewhere
+        word_analysis = analyze_word_in_dataset(query, df)
         word_visualizations = []
         word_viz_titles = []
         word_viz_ids = []
@@ -1550,7 +1564,8 @@ def go():
             word_messages = df[mask]
 
             # Create basic visualizations for word analysis
-            basic_visuals = create_word_visualizations(word_analysis)  # Function should be defined elsewhere
+            basic_visuals = create_word_visualizations(
+                word_analysis)  # Function should be defined elsewhere
             word_visualizations.extend(basic_visuals)
 
             # Define titles for basic visualizations
@@ -1580,7 +1595,8 @@ def go():
             word_viz_titles.extend(advanced_titles)
 
             # Generate insights from word analysis
-            word_insights = get_word_insights(query, df, word_messages)  # Function should be defined elsewhere
+            # Function should be defined elsewhere
+            word_insights = get_word_insights(query, df, word_messages)
             word_analysis['insights'] = word_insights
 
         # Generate unique IDs for HTML elements
@@ -1606,20 +1622,20 @@ def go():
 @app.route('/search_api')
 def search_api():
     """API endpoint for live search suggestions.
-    
+
     Provides real-time search suggestions based on message content. Searches through
     the loaded DataFrame for messages containing the query string and returns a 
     limited number of truncated results.
-    
+
     Query Parameters:
         q (str): Search query string. Must be at least 2 characters long.
         limit (int, optional): Maximum number of results to return. Defaults to 10.
-    
+
     Returns:
         flask.Response: JSON response containing a list of truncated message strings
                        that match the search query. Returns empty list if no matches
                        found or if query is invalid.
-    
+
     Note:
         - Returns empty list if DataFrame is empty
         - Query must be at least 2 characters long
@@ -1645,10 +1661,11 @@ def search_api():
     # Return truncated results for better display formatting
     return jsonify([truncate_text(msg, 100) for msg in results])
 
+
 # ================== Run ==================
 if __name__ == '__main__':
     """Main execution block for the Flask application.
-    
+
     Initializes the Flask app context, creates database tables, loads visualizations,
     and starts the development server. Includes error handling for visualization
     loading and provides status feedback during startup.
