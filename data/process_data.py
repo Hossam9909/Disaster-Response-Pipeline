@@ -349,8 +349,8 @@ def summarize_data(df):
     """
     try:
         # Log basic dataset dimensions
-        logging.info(f"Dataset contains {df.shape[0]} rows and {
-                     df.shape[1]} columns.")
+        logging.info(
+            f"Dataset contains {df.shape[0]} rows and {df.shape[1]} columns.")
 
         # Log all column names for validation
         logging.info(f"Columns: {', '.join(df.columns)}")
