@@ -51,8 +51,7 @@ def ensure_nltk_data():
             try:
                 nltk.download(download_name, quiet=True)
             except Exception as e:
-                print(
-                    f"Warning: Could not download NLTK data '{download_name}': {e}")
+                print(f"Warning: Could not download NLTK data '{download_name}': {e}")
 
 
 # Call once at module level
@@ -191,7 +190,7 @@ def tokenize(text):
     text = text.lower()
 
     # Remove all punctuation characters using regex
-    text = re.sub(f"[{string.punctuation}]", "", text)  # Remove punctuation
+    text = re.sub(f"[{string.punctuation}]", "", text)
 
     # Tokenize the cleaned text into individual words
     tokens = word_tokenize(text)
@@ -270,8 +269,7 @@ def clean_data(df):
         initial_length = len(df)
         df = df.drop_duplicates()
         final_length = len(df)
-        logging.info(
-            f"Removed {initial_length - final_length} duplicate rows.")
+        logging.info(f"Removed {initial_length - final_length} duplicate rows.")
 
         return df
 
@@ -349,8 +347,7 @@ def summarize_data(df):
     """
     try:
         # Log basic dataset dimensions
-        logging.info(
-            f"Dataset contains {df.shape[0]} rows and {df.shape[1]} columns.")
+        logging.info(f"Dataset contains {df.shape[0]} rows and {df.shape[1]} columns.")
 
         # Log all column names for validation
         logging.info(f"Columns: {', '.join(df.columns)}")
@@ -402,8 +399,7 @@ def main():
         validate_input_files([messages_filepath, categories_filepath])
 
         # Step 2: Load and merge the input datasets
-        logging.info(f'Loading data...\n    MESSAGES: {
-                     messages_filepath}\n    CATEGORIES: {categories_filepath}')
+        logging.info(f'Loading data...\n    MESSAGES: {messages_filepath}\n    CATEGORIES: {categories_filepath}')
         df = load_data(messages_filepath, categories_filepath)
 
         # Step 3: Clean and transform the merged data
