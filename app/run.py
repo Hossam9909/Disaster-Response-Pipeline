@@ -10,7 +10,6 @@ Author: Disaster Response Team
 Version: 1.0
 """
 
-from nltk.corpus import stopwords
 import os
 import re
 import json
@@ -31,13 +30,11 @@ from nltk import pos_tag
 from functools import lru_cache
 from collections import Counter
 import nltk
-
-# Ensure required NLTK data is available
+from nltk.corpus import stopwords
 
 
 def ensure_nltk_data():
     """Download NLTK data if not already present."""
-    import os
     nltk_data_dir = os.path.expanduser('~/nltk_data')
 
     required_data = [
@@ -54,8 +51,7 @@ def ensure_nltk_data():
             try:
                 nltk.download(download_name, quiet=True)
             except Exception as e:
-                print(
-                    f"Warning: Could not download NLTK data '{download_name}': {e}")
+                print(f"Warning: Could not download NLTK data '{download_name}': {e}")
 
 
 # Call
@@ -116,6 +112,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///feedback.db'
 app.secret_key = os.urandom(24)
 db = SQLAlchemy(app)
 
+
 # ================== Feedback Model ==================
 
 
@@ -138,34 +135,30 @@ class Feedback(db.Model):
     prediction = db.Column(db.String(500))
     is_correct = db.Column(db.Boolean)
 
+
 # ================== Recommendations ==================
 
 
 RECOMMENDATIONS = {
-
-
     'water': {
         'text': 'Contact water assistance organizations',
         'links': [
             {'name': 'Water.org', 'url': 'https://water.org'},
-            {'name': 'UNICEF Water',
-             'url': 'https://www.unicef.org/water-sanitation-hygiene'}
+            {'name': 'UNICEF Water', 'url': 'https://www.unicef.org/water-sanitation-hygiene'}
         ]
     },
     'medical_help': {
         'text': 'Alert medical support organizations and contact local emergency services',
         'links': [
             {'name': 'Red Cross', 'url': 'https://www.redcross.org'},
-            {'name': 'Doctors Without Borders',
-             'url': 'https://www.doctorswithoutborders.org'}
+            {'name': 'Doctors Without Borders', 'url': 'https://www.doctorswithoutborders.org'}
         ]
     },
     'food': {
         'text': 'Reach out to food assistance organizations',
         'links': [
             {'name': 'World Food Programme', 'url': 'https://www.wfp.org'},
-            {'name': 'Action Against Hunger',
-                'url': 'https://www.actionagainsthunger.org'}
+            {'name': 'Action Against Hunger', 'url': 'https://www.actionagainsthunger.org'}
         ]
     },
     'shelter': {
@@ -179,8 +172,7 @@ RECOMMENDATIONS = {
         'text': 'Contact refugee assistance programs',
         'links': [
             {'name': 'UNHCR', 'url': 'https://www.unhcr.org'},
-            {'name': 'International Rescue Committee',
-                'url': 'https://www.rescue.org'}
+            {'name': 'International Rescue Committee', 'url': 'https://www.rescue.org'}
         ]
     },
     'direct_report': {
@@ -191,11 +183,12 @@ RECOMMENDATIONS = {
     }
 }
 
+
 # ================== Load Model and Data ==================
 
 # Construct path to disaster response database
-db_path = os.path.join(os.path.dirname(__file__), '..',
-                       'data', 'DisasterResponse.db')
+db_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'DisasterResponse.db')
+
 try:
     # Create database engine and load disaster response data
     engine = create_engine(f'sqlite:///{os.path.abspath(db_path)}')
@@ -236,14 +229,12 @@ def load_model():
         this script. The function uses LRU cache to avoid reloading the model
         multiple times during application runtime.
     """
-    model_path = os.path.join(os.path.dirname(
-        __file__), '..', 'models', 'classifier.pkl')
+    model_path = os.path.join(os.path.dirname(__file__), '..', 'models', 'classifier.pkl')
 
     if os.path.exists(model_path):
         try:
             model = joblib.load(model_path)
-            print(
-                f"Model loaded successfully from: {os.path.abspath(model_path)}")
+            print(f"Model loaded successfully from: {os.path.abspath(model_path)}")
             return model
         except Exception as e:
             print(f"Error loading model: {e}")
@@ -256,6 +247,7 @@ def load_model():
 
 # Load the machine learning model at application startup
 model = load_model()
+
 
 # ================== Helper Functions ==================
 
@@ -363,8 +355,7 @@ def analyze_word_in_dataset(word, df):
         }
 
     # Identify category columns (exclude metadata columns)
-    category_cols = [col for col in df.columns if col not in [
-        'id', 'message', 'original', 'genre']]
+    category_cols = [col for col in df.columns if col not in ['id', 'message', 'original', 'genre']]
 
     # Calculate category distribution for messages containing the word
     category_distribution = {}
@@ -390,21 +381,17 @@ def analyze_word_in_dataset(word, df):
 
     # Find words that frequently co-occur with the target word
     stop_words = set(stopwords.words('english'))
-    stop_words.update(['said', 'say', 'get', 'go', 'know',
-                      'make', 'come', 'take', 'see', 'want'])
+    stop_words.update(['said', 'say', 'get', 'go', 'know', 'make', 'come', 'take', 'see', 'want'])
     stop_words.add(word_clean)  # Remove the searched word itself
 
     # Combine all messages containing the word and analyze co-occurring words
-    word_messages_text = ' '.join(
-        word_messages['message'].dropna().astype(str)).lower()
+    word_messages_text = ' '.join(word_messages['message'].dropna().astype(str)).lower()
     tokens = word_tokenize(word_messages_text)
-    words = [w for w in tokens if w.isalpha() and len(w) >
-             2 and w not in stop_words]
+    words = [w for w in tokens if w.isalpha() and len(w) > 2 and w not in stop_words]
     co_occurring_words = Counter(words).most_common(10)
 
     # Count total occurrences of the word across all messages
-    total_occurrences = sum(msg.lower().count(word_clean)
-                            for msg in df['message'].dropna().astype(str))
+    total_occurrences = sum(msg.lower().count(word_clean) for msg in df['message'].dropna().astype(str))
 
     # Get sample messages for qualitative analysis
     sample_messages = word_messages['message'].head(5).tolist()
@@ -451,14 +438,11 @@ def create_word_visualizations(word_analysis):
         # 1. Category Distribution for messages containing this word
         if word_analysis['category_distribution']:
             categories = list(word_analysis['category_distribution'].keys())
-            percentages = [data['percentage']
-                           for data in word_analysis['category_distribution'].values()]
-            counts = [data['count']
-                      for data in word_analysis['category_distribution'].values()]
+            percentages = [data['percentage'] for data in word_analysis['category_distribution'].values()]
+            counts = [data['count'] for data in word_analysis['category_distribution'].values()]
 
             # Only show categories with non-zero values to avoid clutter
-            non_zero_data = [(cat, perc, count) for cat, perc, count in zip(
-                categories, percentages, counts) if count > 0]
+            non_zero_data = [(cat, perc, count) for cat, perc, count in zip(categories, percentages, counts) if count > 0]
 
             if non_zero_data:
                 categories, percentages, counts = zip(*non_zero_data)
@@ -472,16 +456,14 @@ def create_word_visualizations(word_analysis):
                     color=list(percentages),
                     color_continuous_scale='viridis'
                 )
-                fig1.update_traces(
-                    texttemplate='%{text}', textposition='outside')
+                fig1.update_traces(texttemplate='%{text}', textposition='outside')
                 fig1.update_layout(xaxis_tickangle=-45, height=500)
                 visuals.append(json.dumps(fig1, cls=PlotlyJSONEncoder))
 
         # 2. Genre Distribution pie chart for messages containing this word
         if word_analysis['genre_distribution']:
             genres = list(word_analysis['genre_distribution'].keys())
-            genre_counts = [data['count']
-                            for data in word_analysis['genre_distribution'].values()]
+            genre_counts = [data['count'] for data in word_analysis['genre_distribution'].values()]
 
             fig2 = px.pie(
                 values=genre_counts,
@@ -503,8 +485,7 @@ def create_word_visualizations(word_analysis):
                 color=list(co_counts),
                 color_continuous_scale='plasma'
             )
-            fig3.update_layout(height=400, yaxis={
-                               'categoryorder': 'total ascending'})
+            fig3.update_layout(height=400, yaxis={'categoryorder': 'total ascending'})
             visuals.append(json.dumps(fig3, cls=PlotlyJSONEncoder))
 
         # 4. Word Usage Statistics summary chart
@@ -564,8 +545,7 @@ def create_advanced_word_visualizations(word, df, word_messages):
     """
     visuals = []
     # Identify category columns by excluding known metadata columns
-    category_cols = [col for col in df.columns if col not in [
-        'id', 'message', 'original', 'genre']]
+    category_cols = [col for col in df.columns if col not in ['id', 'message', 'original', 'genre']]
 
     try:
         # 1. Category Comparison: Messages with word vs Overall Dataset
@@ -579,10 +559,8 @@ def create_advanced_word_visualizations(word, df, word_messages):
         })
 
         # Only show categories where there's a significant difference (>5%)
-        comparison_data['Difference'] = comparison_data['Messages with Word %'] - \
-            comparison_data['Overall Dataset %']
-        significant_diff = comparison_data[abs(
-            comparison_data['Difference']) > 5].head(15)
+        comparison_data['Difference'] = comparison_data['Messages with Word %'] - comparison_data['Overall Dataset %']
+        significant_diff = comparison_data[abs(comparison_data['Difference']) > 5].head(15)
 
         if not significant_diff.empty:
             fig1 = px.bar(
@@ -599,11 +577,9 @@ def create_advanced_word_visualizations(word, df, word_messages):
 
         # 2. Multi-category Messages Analysis - shows message complexity
         word_messages_copy = word_messages.copy()
-        word_messages_copy['category_count'] = word_messages_copy[category_cols].sum(
-            axis=1)
+        word_messages_copy['category_count'] = word_messages_copy[category_cols].sum(axis=1)
 
-        category_count_dist = word_messages_copy['category_count'].value_counts(
-        ).sort_index()
+        category_count_dist = word_messages_copy['category_count'].value_counts().sort_index()
 
         fig2 = px.bar(
             x=category_count_dist.index,
@@ -634,8 +610,7 @@ def create_advanced_word_visualizations(word, df, word_messages):
             visuals.append(json.dumps(fig3, cls=PlotlyJSONEncoder))
 
         # 4. Message Length Analysis - comparing average lengths
-        word_messages_copy['message_length'] = word_messages_copy['message'].str.len(
-        )
+        word_messages_copy['message_length'] = word_messages_copy['message'].str.len()
         overall_avg_length = df['message'].str.len().mean()
         word_avg_length = word_messages_copy['message_length'].mean()
 
@@ -657,8 +632,7 @@ def create_advanced_word_visualizations(word, df, word_messages):
 
         # 5. Language Detection Analysis (Original vs Translated Messages)
         if 'original' in word_messages.columns:
-            has_translation = word_messages['original'].notna() & (
-                word_messages['original'] != word_messages['message'])
+            has_translation = word_messages['original'].notna() & (word_messages['original'] != word_messages['message'])
             translation_stats = {
                 'Type': ['English Only', 'Has Translation'],
                 'Count': [
@@ -681,8 +655,7 @@ def create_advanced_word_visualizations(word, df, word_messages):
             active_cats = [col for col in category_cols if row[col] == 1]
             if active_cats:
                 # Limit to 3 categories for readability
-                category_combinations.append(
-                    ' + '.join(sorted(active_cats)[:3]))
+                category_combinations.append(' + '.join(sorted(active_cats)[:3]))
 
         combo_counts = Counter(category_combinations).most_common(10)
         if combo_counts:
@@ -697,23 +670,20 @@ def create_advanced_word_visualizations(word, df, word_messages):
                 color=list(combo_vals),
                 color_continuous_scale='plasma'
             )
-            fig6.update_layout(height=500, yaxis={
-                               'categoryorder': 'total ascending'})
+            fig6.update_layout(height=500, yaxis={'categoryorder': 'total ascending'})
             visuals.append(json.dumps(fig6, cls=PlotlyJSONEncoder))
 
         # 7. Natural Disaster Type Distribution Analysis
         disaster_categories = [col for col in category_cols if any(keyword in col.lower() for keyword in
-                                                                   ['weather', 'flood', 'storm', 'fire', 'earthquake', 'cold'])]
+                              ['weather', 'flood', 'storm', 'fire', 'earthquake', 'cold'])]
 
         if disaster_categories:
             disaster_counts = word_messages[disaster_categories].sum()
-            disaster_counts = disaster_counts[disaster_counts > 0].sort_values(
-                ascending=False)
+            disaster_counts = disaster_counts[disaster_counts > 0].sort_values(ascending=False)
 
             if not disaster_counts.empty:
                 fig7 = px.bar(
-                    x=[col.replace('_', ' ').title()
-                       for col in disaster_counts.index],
+                    x=[col.replace('_', ' ').title() for col in disaster_counts.index],
                     y=disaster_counts.values,
                     title=f'Natural Disaster Types Associated with "{word.title()}"',
                     labels={'x': 'Disaster Type', 'y': 'Number of Messages'},
@@ -752,8 +722,7 @@ def get_word_insights(word, df, word_messages):
         - Usage frequency patterns
     """
     # Identify category columns for analysis
-    category_cols = [col for col in df.columns if col not in [
-        'id', 'message', 'original', 'genre']]
+    category_cols = [col for col in df.columns if col not in ['id', 'message', 'original', 'genre']]
     insights = []
 
     # Analyze strongest category association
@@ -762,27 +731,22 @@ def get_word_insights(word, df, word_messages):
     top_percentage = word_category_means.max() * 100
 
     if top_percentage > 10:
-        insights.append(
-            f'Most strongly associated with {top_category.replace("_", " ").title()} ({top_percentage:.1f}% of messages)')
+        insights.append(f'Most strongly associated with {top_category.replace("_", " ").title()} ({top_percentage:.1f}% of messages)')
 
     # Analyze genre preferences
     if 'genre' in word_messages.columns:
-        top_genre = word_messages['genre'].mode(
-        )[0] if not word_messages['genre'].mode().empty else 'Unknown'
+        top_genre = word_messages['genre'].mode()[0] if not word_messages['genre'].mode().empty else 'Unknown'
         genre_percentage = (word_messages['genre'] == top_genre).mean() * 100
-        insights.append(
-            f'Most common in {top_genre} messages ({genre_percentage:.1f}%)')
+        insights.append(f'Most common in {top_genre} messages ({genre_percentage:.1f}%)')
 
     # Analyze message complexity compared to overall dataset
     avg_categories = word_messages[category_cols].sum(axis=1).mean()
     overall_avg = df[category_cols].sum(axis=1).mean()
 
     if avg_categories > overall_avg * 1.2:
-        insights.append(
-            f'Messages tend to be more complex (avg {avg_categories:.1f} categories vs {overall_avg:.1f} overall)')
+        insights.append(f'Messages tend to be more complex (avg {avg_categories:.1f} categories vs {overall_avg:.1f} overall)')
     elif avg_categories < overall_avg * 0.8:
-        insights.append(
-            f'Messages tend to be simpler (avg {avg_categories:.1f} categories vs {overall_avg:.1f} overall)')
+        insights.append(f'Messages tend to be simpler (avg {avg_categories:.1f} categories vs {overall_avg:.1f} overall)')
 
     return insights
 
@@ -793,13 +757,15 @@ def get_word_insights(word, df, word_messages):
 def create_visualizations():
     """Create all visualizations for the dashboard.
 
-    This function generates various data visualizations including category distribution,
-    genre distribution, correlation heatmaps, message length distribution, and word frequency.
-    Uses LRU cache to avoid regenerating visualizations on repeated calls.
+    This function generates various data visualizations including category
+    distribution, genre distribution, correlation heatmaps, message length
+    distribution, and word frequency. Uses LRU cache to avoid regenerating
+    visualizations on repeated calls.
 
     Returns:
-        list: A list of JSON-encoded Plotly figures ready for rendering in templates.
-              Returns empty list if no data is available or if errors occur.
+        list: A list of JSON-encoded Plotly figures ready for rendering in
+              templates. Returns empty list if no data is available or if
+              errors occur.
 
     Note:
         Assumes global 'df' DataFrame is available with expected columns:
@@ -825,8 +791,7 @@ def create_visualizations():
 
             # Create interactive bar chart with color mapping
             fig1 = px.bar(
-                x=category_counts.index.str.replace(
-                    '_', ' ').str.title(),  # Format category names
+                x=category_counts.index.str.replace('_', ' ').str.title(),
                 y=category_counts.values,
                 labels={'x': 'Category', 'y': 'Count'},
                 title='Message Category Distribution',
@@ -861,7 +826,7 @@ def create_visualizations():
             fig3 = px.imshow(
                 corr_matrix,
                 title='Top 15 Categories Correlation Heatmap',
-                color_continuous_scale='RdBu',  # Red-Blue diverging scale
+                color_continuous_scale='RdBu',
                 aspect='auto'
             )
             fig3.update_layout(height=600)
@@ -874,14 +839,19 @@ def create_visualizations():
 
             # Calculate message length in characters, handling NaN values
             df_copy['msg_len'] = df_copy['message'].apply(
-                lambda x: len(str(x)) if pd.notna(x) else 0)
+                lambda x: len(str(x)) if pd.notna(x) else 0
+            )
 
             # Create histogram for message length distribution
             fig4 = px.histogram(
-                df_copy, x='msg_len', nbins=50,
+                df_copy,
+                x='msg_len',
+                nbins=50,
                 title='Distribution of Message Lengths',
                 labels={
-                    'msg_len': 'Message Length (characters)', 'count': 'Frequency'},
+                    'msg_len': 'Message Length (characters)',
+                    'count': 'Frequency'
+                },
                 color_discrete_sequence=['skyblue']
             )
             fig4.update_layout(height=400)
@@ -891,16 +861,20 @@ def create_visualizations():
         if 'message' in df.columns:
             # Define stop words to exclude from frequency analysis
             stop_words = set(stopwords.words('english'))
-            stop_words.update(['said', 'say', 'get', 'go', 'know',
-                               'make', 'come', 'take', 'see', 'want'])  # Add custom stop words
+            stop_words.update([
+                'said', 'say', 'get', 'go', 'know',
+                'make', 'come', 'take', 'see', 'want'
+            ])
 
             # Combine all messages into single text and convert to lowercase
             all_words = ' '.join(df['message'].dropna().astype(str)).lower()
-            tokens = word_tokenize(all_words)  # Tokenize text into words
+            tokens = word_tokenize(all_words)
 
             # Filter words: alphabetic, length > 2, not in stop words
-            words = [word for word in tokens if word.isalpha() and len(word) > 2
-                     and word not in stop_words]
+            words = [
+                word for word in tokens
+                if word.isalpha() and len(word) > 2 and word not in stop_words
+            ]
 
             # Get 15 most common words
             common_words = Counter(words).most_common(15)
@@ -911,13 +885,18 @@ def create_visualizations():
 
                 # Create horizontal bar chart for word frequency
                 fig5 = px.bar(
-                    word_df, x='Count', y='Word', orientation='h',
+                    word_df,
+                    x='Count',
+                    y='Word',
+                    orientation='h',
                     title='Top 15 Most Frequent Words',
                     color='Count',
                     color_continuous_scale='plasma'
                 )
-                fig5.update_layout(height=500, yaxis={
-                                   'categoryorder': 'total ascending'})  # Sort by count
+                fig5.update_layout(
+                    height=500,
+                    yaxis={'categoryorder': 'total ascending'}
+                )
                 visuals.append(json.dumps(fig5, cls=PlotlyJSONEncoder))
             else:
                 # Fallback empty chart if no words found
@@ -933,6 +912,7 @@ def create_visualizations():
 
 # ================== Routes ==================
 
+
 @app.route('/')
 def index():
     """Main page with visualizations and message table.
@@ -943,14 +923,17 @@ def index():
     - Category distribution analysis
 
     Query Parameters:
-        limit (int, optional): Maximum number of messages to display. Defaults to 50.
-        search (str, optional): Search query to filter messages. Defaults to empty string.
+        limit (int, optional): Maximum number of messages to display.
+                              Defaults to 50.
+        search (str, optional): Search query to filter messages.
+                               Defaults to empty string.
 
     Returns:
         str: Rendered HTML template with visualizations and table data.
 
     Template Variables:
-        table_data (list): List of dictionaries containing message and category data
+        table_data (list): List of dictionaries containing message and
+                          category data
         columns (list): Column headers for the data table
         category_cols (list): List of category column names
         row_limit (int): Current row limit setting
@@ -966,20 +949,27 @@ def index():
     # Check if data is available
     if df.empty:
         flash("No data available. Please check database connection.")
-        return render_template('master.html',
-                               table_data=[], columns=[],
-                               graphs=[], graph_titles=[], ids=[])
+        return render_template(
+            'master.html',
+            table_data=[],
+            columns=[],
+            graphs=[],
+            graph_titles=[],
+            ids=[]
+        )
 
     # Get all category columns by excluding known non-category ones
-    category_cols = [col for col in df.columns if col not in [
-        'id', 'message', 'original', 'genre']]
+    category_cols = [
+        col for col in df.columns
+        if col not in ['id', 'message', 'original', 'genre']
+    ]
 
     # Search and filter data based on query parameters
     if search_query:
         df_filtered = search_messages(df, search_query, limit)
         if df_filtered.empty:
             flash(f"No messages found containing '{search_query}'")
-            df_filtered = df.head(limit)  # Fallback to showing limited results
+            df_filtered = df.head(limit)
     else:
         df_filtered = df.head(limit) if limit > 0 else df
 
@@ -996,33 +986,39 @@ def index():
 
         # Add categories with consistent naming for the template
         for cat in category_cols:
-            template_key = cat.lower().replace(' ', '_')  # Convert to template-friendly key
+            template_key = cat.lower().replace(' ', '_')
             if cat in row:
                 # Convert to integer, handling NaN values
-                row_dict[template_key] = int(
-                    row[cat]) if pd.notna(row[cat]) else 0
+                row_dict[template_key] = (
+                    int(row[cat]) if pd.notna(row[cat]) else 0
+                )
             else:
                 row_dict[template_key] = 0
 
         table_data.append(row_dict)
 
     # Create columns list for the table header, matching template logic
-    columns = ['Message', 'Genre'] + \
-        [col.replace('_', ' ').title() for col in category_cols]
+    columns = ['Message', 'Genre'] + [
+        col.replace('_', ' ').title() for col in category_cols
+    ]
 
     # Debug output for troubleshooting
     print(f"Debug: Prepared {len(table_data)} records for the table.")
     print(f"Debug: Columns for template = {columns[:5]}...")
+    
     if table_data:
         sample_row = table_data[0]
         print(f"Debug: Sample row keys = {list(sample_row.keys())[:10]}...")
-        print(
-            f"Debug: Message content = '{sample_row.get('message', 'NOT FOUND')[:100]}...'")
+        
+        message_content = sample_row.get('message', 'NOT FOUND')
+        print(f"Debug: Message content = '{message_content[:100]}...'")
         print(f"Debug: Genre = '{sample_row.get('genre', 'NOT FOUND')}'")
+        
         # Check a few category values using the template key
         for cat in category_cols[:3]:
-            print(
-                f"Debug: {cat} = {sample_row.get(cat.lower().replace(' ', '_'), 'NOT FOUND')}")
+            template_key = cat.lower().replace(' ', '_')
+            value = sample_row.get(template_key, 'NOT FOUND')
+            print(f"Debug: {cat} = {value}")
 
     # Create visualizations with error handling
     try:
@@ -1044,15 +1040,17 @@ def index():
         flash("Error loading visualizations")
 
     # Render template with all prepared data
-    return render_template('master.html',
-                           table_data=table_data,
-                           columns=columns,
-                           category_cols=category_cols,
-                           row_limit=limit,
-                           search_query=search_query,
-                           graphs=graphs,
-                           graph_titles=graph_titles,
-                           ids=ids)
+    return render_template(
+        'master.html',
+        table_data=table_data,
+        columns=columns,
+        category_cols=category_cols,
+        row_limit=limit,
+        search_query=search_query,
+        graphs=graphs,
+        graph_titles=graph_titles,
+        ids=ids
+    )
 
 
 @app.route('/simple')
@@ -1064,8 +1062,10 @@ def simple_view():
     testing when full dashboard functionality is not needed.
 
     Query Parameters:
-        limit (int, optional): Maximum number of messages to display. Defaults to 50.
-        search (str, optional): Search query to filter messages. Defaults to empty string.
+        limit (int, optional): Maximum number of messages to display.
+                              Defaults to 50.
+        search (str, optional): Search query to filter messages.
+                               Defaults to empty string.
 
     Returns:
         str: Rendered HTML page with message table and basic styling.
@@ -1084,22 +1084,27 @@ def simple_view():
     # Check if data is available
     if df.empty:
         flash("No data available. Please check database connection.")
-        return render_template_string("""
-        <h1>Error</h1>
-        <p>No data available. Please check database connection.</p>
-        <p>Database path: {{ db_path }}</p>
-        """, db_path=db_path)
+        return render_template_string(
+            """
+            <h1>Error</h1>
+            <p>No data available. Please check database connection.</p>
+            <p>Database path: {{ db_path }}</p>
+            """,
+            db_path=db_path
+        )
 
     # Get all category columns by excluding known non-category ones
-    category_cols = [col for col in df.columns if col not in [
-        'id', 'message', 'original', 'genre']]
+    category_cols = [
+        col for col in df.columns
+        if col not in ['id', 'message', 'original', 'genre']
+    ]
 
     # Search and filter data based on parameters
     if search_query:
         df_filtered = search_messages(df, search_query, limit)
         if df_filtered.empty:
             flash(f"No messages found containing '{search_query}'")
-            df_filtered = df.head(limit)  # Fallback to showing limited results
+            df_filtered = df.head(limit)
     else:
         df_filtered = df.head(limit) if limit > 0 else df
 
@@ -1121,8 +1126,9 @@ def simple_view():
         table_data.append(row_data)
 
     # Create column headers - ensure Message comes first for better UX
-    columns = ['Message', 'Genre'] + \
-        [col.replace('_', ' ').title() for col in category_cols]
+    columns = ['Message', 'Genre'] + [
+        col.replace('_', ' ').title() for col in category_cols
+    ]
 
     # Debug information for development
     print(f"Debug: Found {len(table_data)} records")
@@ -1351,19 +1357,24 @@ def simple_view():
         <div class="container">
             <!-- Page header -->
             <h1>🚨 Disaster Response Pipeline</h1>
-            <p>Analyze disaster messages and get emergency response recommendations</p>
+            <p>Analyze disaster messages and get emergency response 
+               recommendations</p>
 
             <!-- Link to message classification feature -->
-            <a href="/go" class="classification-link">🔍 Classify New Message</a>
+            <a href="/go" class="classification-link">
+                🔍 Classify New Message
+            </a>
 
             <!-- Search interface -->
             <div class="search-section">
                 <h3>Search Messages</h3>
                 <form method="GET" action="/simple" class="search-form">
-                    <input type="text" name="search" placeholder="Search messages..."
+                    <input type="text" name="search" 
+                           placeholder="Search messages..."
                            value="{{ search_query }}" class="search-input">
-                    <input type="number" name="limit" placeholder="Limit" min="1" max="1000"
-                           value="{{ row_limit }}" class="btn btn-secondary" style="width: 100px;">
+                    <input type="number" name="limit" placeholder="Limit" 
+                           min="1" max="1000" value="{{ row_limit }}" 
+                           class="btn btn-secondary" style="width: 100px;">
                     <button type="submit" class="btn btn-primary">Search</button>
                     <a href="/simple" class="btn btn-secondary">Clear</a>
                     <a href="/" class="btn btn-secondary">Full Dashboard</a>
@@ -1415,9 +1426,13 @@ def simple_view():
                             <!-- Category cells with visual indicators -->
                             {% for cat in category_cols %}
                                 {% if row[cat] == 1 %}
-                                    <td class="category-cell category-true">✓</td>
+                                    <td class="category-cell category-true">
+                                        ✓
+                                    </td>
                                 {% else %}
-                                    <td class="category-cell category-false">✗</td>
+                                    <td class="category-cell category-false">
+                                        ✗
+                                    </td>
                                 {% endif %}
                             {% endfor %}
                         </tr>
@@ -1426,17 +1441,25 @@ def simple_view():
                 </table>
                 {% else %}
                     <div class="alert alert-warning">
-                        No data to display. Please check your search criteria or database connection.
+                        No data to display. Please check your search criteria 
+                        or database connection.
                     </div>
                 {% endif %}
             </div>
 
             <!-- Legend for category symbols -->
-            <div style="margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px;">
+            <div style="margin-top: 20px; padding: 15px; 
+                        background-color: #f8f9fa; border-radius: 5px;">
                 <h4>Legend:</h4>
                 <p>
-                    <span class="category-cell category-true" style="padding: 5px 10px; margin-right: 15px;">✓</span> Category applies to message
-                    <span class="category-cell category-false" style="padding: 5px 10px;">✗</span> Category does not apply to message
+                    <span class="category-cell category-true" 
+                          style="padding: 5px 10px; margin-right: 15px;">
+                        ✓
+                    </span> Category applies to message
+                    <span class="category-cell category-false" 
+                          style="padding: 5px 10px;">
+                        ✗
+                    </span> Category does not apply to message
                 </p>
             </div>
         </div>
@@ -1445,32 +1468,37 @@ def simple_view():
     """
 
     # Render template with all prepared data
-    return render_template_string(template_html,
-                                  table_data=table_data,
-                                  columns=columns,
-                                  category_cols=category_cols,
-                                  search_query=search_query,
-                                  row_limit=limit)
+    return render_template_string(
+        template_html,
+        table_data=table_data,
+        columns=columns,
+        category_cols=category_cols,
+        search_query=search_query,
+        row_limit=limit
+    )
 
 
 @app.route('/go', methods=['GET', 'POST'])
 def go():
     """Handle message classification and feedback with word analysis.
 
-    Provides the main interface for classifying disaster messages using ML model
-    and analyzing word usage patterns in the dataset. Handles both GET requests
-    for displaying the form and POST requests for processing feedback.
+    Provides the main interface for classifying disaster messages using ML
+    model and analyzing word usage patterns in the dataset. Handles both GET
+    requests for displaying the form and POST requests for processing feedback.
 
     POST Parameters (for feedback):
-        feedback (str): User feedback on prediction accuracy ('accurate' or other)
+        feedback (str): User feedback on prediction accuracy
+                       ('accurate' or other)
         message (str): Original message that was classified
-        prediction (str): The prediction result that user is providing feedback on
+        prediction (str): The prediction result that user is providing
+                         feedback on
 
     GET Parameters (for classification):
         query (str): The message text to classify and analyze
 
     Returns:
-        str: Rendered HTML template with classification results and word analysis.
+        str: Rendered HTML template with classification results and word
+             analysis.
 
     Template Variables:
         query (str): The input message
@@ -1497,7 +1525,7 @@ def go():
             new_feedback = Feedback(
                 message=request.form.get('message', ''),
                 prediction=request.form.get('prediction', ''),
-                is_correct=(feedback == 'accurate')  # Convert to boolean
+                is_correct=(feedback == 'accurate')
             )
             db.session.add(new_feedback)
             db.session.commit()
@@ -1515,42 +1543,49 @@ def go():
 
     # Check if model is available for classification
     if model is None:
-        return render_template('go.html',
-                               error="Model is not available. Please check model file and try again.")
+        return render_template(
+            'go.html',
+            error="Model is not available. Please check model file and "
+                  "try again."
+        )
 
     try:
         # Make prediction using the loaded ML model
         pred = model.predict([query])[0]
 
         # Get category names from DataFrame columns
-        category_cols = [col for col in df.columns if col not in [
-            'id', 'message', 'original', 'genre']]
+        category_cols = [
+            col for col in df.columns
+            if col not in ['id', 'message', 'original', 'genre']
+        ]
 
         # Create results dictionary mapping categories to predictions
         results = dict(zip(category_cols, map(int, pred)))
 
         # Filter for positive results to generate recommendations
-        positive_results = {cat: val for cat,
-                            val in results.items() if val == 1}
+        positive_results = {cat: val for cat, val in results.items() 
+                          if val == 1}
 
         # Get recommendations for positive categories
         recommendations = []
         for cat in positive_results.keys():
-            if cat in RECOMMENDATIONS:  # RECOMMENDATIONS should be defined elsewhere
+            if cat in RECOMMENDATIONS:
                 recommendations.append(RECOMMENDATIONS[cat])
 
         # If no specific recommendations, add general ones
         if not recommendations:
             recommendations.append({
-                'text': 'Contact local emergency services and relief organizations',
+                'text': 'Contact local emergency services and relief '
+                        'organizations',
                 'links': [
-                    {'name': 'UN Emergency Relief',
-                        'url': 'https://www.un.org/en/humanitarian-response'}
+                    {
+                        'name': 'UN Emergency Relief',
+                        'url': 'https://www.un.org/en/humanitarian-response'
+                    }
                 ]
             })
 
         # Perform word analysis on the input query
-        # Function should be defined elsewhere
         word_analysis = analyze_word_in_dataset(query, df)
         word_visualizations = []
         word_viz_titles = []
@@ -1560,12 +1595,12 @@ def go():
         if word_analysis and word_analysis['message_count'] > 0:
             # Get messages containing the word from dataset
             mask = df['message'].str.contains(
-                query.lower(), case=False, na=False)
+                query.lower(), case=False, na=False
+            )
             word_messages = df[mask]
 
             # Create basic visualizations for word analysis
-            basic_visuals = create_word_visualizations(
-                word_analysis)  # Function should be defined elsewhere
+            basic_visuals = create_word_visualizations(word_analysis)
             word_visualizations.extend(basic_visuals)
 
             # Define titles for basic visualizations
@@ -1579,7 +1614,8 @@ def go():
 
             # Create advanced visualizations for deeper analysis
             advanced_visuals = create_advanced_word_visualizations(
-                query, df, word_messages)  # Function should be defined elsewhere
+                query, df, word_messages
+            )
             word_visualizations.extend(advanced_visuals)
 
             # Define titles for advanced visualizations
@@ -1595,47 +1631,52 @@ def go():
             word_viz_titles.extend(advanced_titles)
 
             # Generate insights from word analysis
-            # Function should be defined elsewhere
             word_insights = get_word_insights(query, df, word_messages)
             word_analysis['insights'] = word_insights
 
         # Generate unique IDs for HTML elements
-        word_viz_ids = [f'word_graph_{i}' for i in range(
-            len(word_visualizations))]
+        word_viz_ids = [
+            f'word_graph_{i}' for i in range(len(word_visualizations))
+        ]
 
         # Render template with all analysis results
-        return render_template('go.html',
-                               query=query,
-                               classification_result=results,
-                               recommendations=recommendations,
-                               word_analysis=word_analysis,
-                               word_graphs=word_visualizations,
-                               word_graph_titles=word_viz_titles,
-                               word_ids=word_viz_ids)
+        return render_template(
+            'go.html',
+            query=query,
+            classification_result=results,
+            recommendations=recommendations,
+            word_analysis=word_analysis,
+            word_graphs=word_visualizations,
+            word_graph_titles=word_viz_titles,
+            word_ids=word_viz_ids
+        )
 
     except Exception as e:
         # Log full exception details for debugging
         logging.exception("Error during classification")
-        return render_template('go.html', error=f"Error processing request: {str(e)}")
+        return render_template(
+            'go.html',
+            error=f"Error processing request: {str(e)}"
+        )
 
 
 @app.route('/search_api')
 def search_api():
     """API endpoint for live search suggestions.
-
+    
     Provides real-time search suggestions based on message content. Searches through
     the loaded DataFrame for messages containing the query string and returns a 
     limited number of truncated results.
-
+    
     Query Parameters:
         q (str): Search query string. Must be at least 2 characters long.
         limit (int, optional): Maximum number of results to return. Defaults to 10.
-
+    
     Returns:
         flask.Response: JSON response containing a list of truncated message strings
                        that match the search query. Returns empty list if no matches
                        found or if query is invalid.
-
+    
     Note:
         - Returns empty list if DataFrame is empty
         - Query must be at least 2 characters long
@@ -1645,19 +1686,19 @@ def search_api():
     # Return empty results if DataFrame is not loaded or empty
     if df.empty:
         return jsonify([])
-
+    
     # Extract and validate query parameters
     query = request.args.get('q', '').strip()
     limit = request.args.get('limit', 10, type=int)
-
+    
     # Validate query length - require minimum 2 characters
     if not query or len(query) < 2:
         return jsonify([])
-
+    
     # Search for messages containing the query (case-insensitive)
     mask = df['message'].str.contains(query, case=False, na=False)
     results = df[mask]['message'].head(limit).tolist()
-
+    
     # Return truncated results for better display formatting
     return jsonify([truncate_text(msg, 100) for msg in results])
 
@@ -1665,7 +1706,7 @@ def search_api():
 # ================== Run ==================
 if __name__ == '__main__':
     """Main execution block for the Flask application.
-
+    
     Initializes the Flask app context, creates database tables, loads visualizations,
     and starts the development server. Includes error handling for visualization
     loading and provides status feedback during startup.
@@ -1676,7 +1717,7 @@ if __name__ == '__main__':
         db.create_all()
         print("Starting Disaster Response Flask App...")
         print("Loading model and creating visualizations...")
-
+        
         # Warm up the cache by pre-loading visualizations
         try:
             # Attempt to create and cache visualizations for faster initial load
@@ -1685,7 +1726,7 @@ if __name__ == '__main__':
         except Exception as e:
             # Log visualization errors but continue app startup
             print(f"⚠️ Error loading visualizations: {e}")
-
+    
     # Start Flask development server
     # host='0.0.0.0' allows external connections
     # port=3001 specifies the listening port
