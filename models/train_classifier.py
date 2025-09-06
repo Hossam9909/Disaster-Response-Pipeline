@@ -30,8 +30,6 @@ from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
 from nltk.corpus import stopwords
 
-# Ensure required NLTK data is available
-
 
 def ensure_nltk_data():
     """Download NLTK data if not already present."""
@@ -53,8 +51,7 @@ def ensure_nltk_data():
             try:
                 nltk.download(download_name, quiet=True)
             except Exception as e:
-                print(
-                    f"Warning: Could not download NLTK data '{download_name}': {e}")
+                print(f"Warning: Could not download NLTK data '{download_name}': {e}")
 
 
 # Call once at module level
@@ -62,8 +59,6 @@ ensure_nltk_data()
 
 # Suppress sklearn UserWarnings for cleaner output
 warnings.filterwarnings('ignore', category=UserWarning)
-
-# Precompute cleaned stop words globally to avoid pickling issues
 
 
 def _preprocess_stop_words():
@@ -113,8 +108,7 @@ def load_data(database_filepath):
     X = df['message']
 
     # Remove non-target columns to isolate category labels
-    Y = df.drop(columns=['id', 'message', 'original',
-                'genre'], errors='ignore')
+    Y = df.drop(columns=['id', 'message', 'original', 'genre'], errors='ignore')
 
     # Clean target data by removing completely empty columns
     Y = Y.dropna(axis=1, how='all')  # Remove empty target columns
@@ -199,12 +193,9 @@ def build_model():
     # Define hyperparameter grid for optimization
     parameters = {
         'clf__estimator__n_estimators': [50, 100],           # Number of trees
-        # Min samples to split node
-        'clf__estimator__min_samples_split': [2, 4],
-        # Maximum tree depth
-        'clf__estimator__max_depth': [None, 10, 20],
-        # Features per split
-        'clf__estimator__max_features': ['sqrt', 'log2']
+        'clf__estimator__min_samples_split': [2, 4],         # Min samples to split node
+        'clf__estimator__max_depth': [None, 10, 20],         # Maximum tree depth
+        'clf__estimator__max_features': ['sqrt', 'log2']     # Features per split
     }
 
     # Return GridSearchCV object with specified parameters
@@ -250,8 +241,7 @@ def evaluate_model(model, X_test, Y_test, category_names):
         print(f"\nCategory: {col}")
 
         # Generate and display detailed classification report
-        report = classification_report(
-            Y_test[col], Y_pred[:, i], zero_division=0)
+        report = classification_report(Y_test[col], Y_pred[:, i], zero_division=0)
         print(report)
 
         # Calculate individual metrics for CSV export
@@ -279,8 +269,7 @@ def evaluate_model(model, X_test, Y_test, category_names):
     pd.DataFrame(reports).to_csv("classification_report.csv", index=False)
 
     # Calculate and display overall model performance
-    overall_f1 = f1_score(Y_test.values, Y_pred,
-                          average='weighted', zero_division=0)
+    overall_f1 = f1_score(Y_test.values, Y_pred, average='weighted', zero_division=0)
     print(f"\nOverall Weighted F1 Score: {overall_f1:.4f}")
 
 
@@ -350,8 +339,7 @@ Example: python train_classifier.py ../data/DisasterResponse.db classifier.pkl""
     X, Y, category_names = load_data(database_filepath)
 
     # Step 2: Split data into training and test sets with stratified sampling
-    X_train, X_test, Y_train, Y_test = train_test_split(
-        X, Y, test_size=0.2, random_state=42)
+    X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=42)
 
     # Step 3: Build ML pipeline with hyperparameter tuning
     print('\nBuilding model...')
